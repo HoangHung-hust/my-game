@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Caro</title>
+
+<style>
+body{
+    background:#0f0f0f;
+    color:#eee;
+    font-family:Arial;
+    text-align:center;
+}
+
+#topbar{
+    padding:10px;
+    border-bottom:1px solid #333;
+}
+
+input{
+    width:140px;
+    padding:6px;
+    font-size:16px;
+    text-align:center;
+}
+
+button{
+    padding:6px 12px;
+    margin-left:5px;
+    font-size:15px;
+    cursor:pointer;
+}
+
+#info{
+    margin-top:8px;
+    font-size:16px;
+}
+
+#board{
+    display:grid;
+    grid-template-columns:repeat(15,36px);
+    gap:1px;
+    justify-content:center;
+    margin:15px auto;
+}
+
+.cell{
+    width:36px;
+    height:36px;
+    background:#222;
+    border:1px solid #444;
+    font-size:20px;
+    line-height:36px;
+    cursor:pointer;
+}
+
+.X{color:#ff5252;}
+.O{color:#4fc3f7;}
+</style>
+</head>
+
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<div id="topbar">
+    Round: <b id="round">1</b> |
+    Lượt: <b id="turn">X</b><br><br>
+
+    <input id="moveInput" placeholder="Nhập XY (vd: 304)">
+    <button onclick="undo()">Undo</button>
+    <button onclick="nextRound()">Chơi lại</button>
+
+    <div id="info">Nước vừa đánh: —</div>
+</div>
+
+<!-- ===== BOARD ===== -->
+<div id="board"></div>
+
+<script>
+const SIZE = 15;
+const WIN = 5;
+
+let board = [];
+let currentPlayer = "X";
+let history = [];
+let gameOver = false;
+let round = 1;
+
+const boardDiv = document.getElementById("board");
+const turnSpan = document.getElementById("turn");
+const infoDiv = document.getElementById("info");
+const moveInput = document.getElementById("moveInput");
+
+// ===== INIT =====
+function init(){
+    board = Array.from({length:SIZE},()=>Array(SIZE).fill(""));
+    boardDiv.innerHTML="";
+    history=[];
+    gameOver=false;
+    currentPlayer="X";
+    turnSpan.textContent="X";
+    infoDiv.textContent="Nước vừa đánh: —";
+
+    for(let r=0;r<SIZE;r++){
+        for(let c=0;c<SIZE;c++){
+            const cell=document.createElement("div");
+            cell.className="cell";
+
+            // ✅ CLICK CHUỘT
+            cell.onclick=()=> {
+                const code=(r+1)*100+(c+1);
+                place(r,c,code);
+            };
+
+            boardDiv.appendChild(cell);
+        }
+    }
+}
+
+// ===== ENTER TO PLAY =====
+moveInput.addEventListener("keydown",e=>{
+    if(e.key==="Enter") playByInput();
+});
+
+function playByInput(){
+    if(gameOver) return;
+
+    const value = moveInput.value.trim();
+    if(!/^\d+$/.test(value)){
+        alert("Nhập số XY hợp lệ!");
+        return;
+    }
+
+    const num=parseInt(value);
+    const x=Math.floor(num/100);
+    const y=num%100;
+
+    if(x<1||x>15||y<1||y>15){
+        alert("Tọa độ ngoài bàn cờ!");
+        return;
+    }
+
+    place(x-1,y-1,num);
+    moveInput.value="";
+}
+
+// ===== PLACE =====
+function place(r,c,code){
+    if(gameOver) return;
+    if(board[r][c]!==""){
+        alert("Ô đã được đánh!");
+        return;
+    }
+
+    const idx=r*SIZE+c;
+    const cell=boardDiv.children[idx];
+
+    board[r][c]=currentPlayer;
+    cell.textContent=currentPlayer;
+    cell.classList.add(currentPlayer);
+
+    history.push({r,c,player:currentPlayer,code});
+    infoDiv.textContent=`Nước vừa đánh: ${currentPlayer} → ${code}`;
+
+    if(checkWin(r,c)){
+        gameOver = true;
+        setTimeout(() => {
+            alert(`🎉 Người chơi ${currentPlayer} thắng!`);
+        }, 50);
+        return;
+    }
+
+    // ✅ KIỂM TRA HÒA
+    if(checkDraw()){
+        gameOver = true;
+        setTimeout(() => {
+            alert("🤝 Hòa! Không còn nước đi nào.");
+        }, 50);
+        return;
+    }
+
+    currentPlayer=currentPlayer==="X"?"O":"X";
+    turnSpan.textContent=currentPlayer;
+}
+
+// ===== UNDO =====
+function undo(){
+    if(history.length===0||gameOver) return;
+
+    const last=history.pop();
+    board[last.r][last.c]="";
+
+    const idx=last.r*SIZE+last.c;
+    const cell=boardDiv.children[idx];
+    cell.textContent="";
+    cell.className="cell";
+
+    currentPlayer=last.player;
+    turnSpan.textContent=currentPlayer;
+
+    if(history.length){
+        const prev=history[history.length-1];
+        infoDiv.textContent=`Nước vừa đánh: ${prev.player} → ${prev.code}`;
+    }else{
+        infoDiv.textContent="Nước vừa đánh: —";
+    }
+}
+
+// ===== NEXT ROUND =====
+function nextRound(){
+    round++;
+    document.getElementById("round").textContent=round;
+    init();
+}
+
+// ===== CHECK WIN =====
+function checkWin(r,c){
+    return(
+        count(r,c,1,0)+count(r,c,-1,0)>=WIN-1||
+        count(r,c,0,1)+count(r,c,0,-1)>=WIN-1||
+        count(r,c,1,1)+count(r,c,-1,-1)>=WIN-1||
+        count(r,c,1,-1)+count(r,c,-1,1)>=WIN-1
+    );
+}
+
+function checkDraw(){
+    return history.length === SIZE * SIZE;
+}
+
+function count(r,c,dr,dc){
+    let cnt=0,i=r+dr,j=c+dc;
+    while(i>=0&&i<SIZE&&j>=0&&j<SIZE&&board[i][j]===currentPlayer){
+        cnt++; i+=dr; j+=dc;
+    }
+    return cnt;
+}
+
+init();
+</script>
+
+</body>
+</html>

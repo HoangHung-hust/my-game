@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Dots & Boxes - Highlight Move</title>
+
+<style>
+body{
+    font-family: Arial;
+    background:#fff3ed;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+}
+
+#board{
+    margin-top:20px;
+    display:grid;
+}
+
+/* ====== Board elements ====== */
+.dot{
+    width:10px;height:10px;
+    background:black;border-radius:50%;
+    margin:auto;
+}
+
+.h-line,.v-line{
+    background:#eee;
+    cursor:pointer;
+    position:relative;
+}
+
+.h-line{height:6px;width:40px;margin:auto 0;}
+.v-line{width:6px;height:40px;margin:0 auto;}
+
+.line.x{background:#00aaff;}
+.line.o{background:#ff4444;}
+
+/* ====== Highlight ====== */
+.highlight{
+    box-shadow: 0 0 10px 4px gold;
+    z-index:2;
+}
+
+/* ====== Cell ====== */
+.cell{
+    font-size:20px;
+    font-weight:bold;
+    line-height:40px;
+    text-align:center;
+}
+
+.x{color:#00aaff;}
+.o{color:#ff4444;}
+
+input{padding:4px;width:140px;}
+button{padding:5px 10px;margin-left:4px;}
+
+#msg{
+    margin-top:6px;
+    font-weight:bold;
+}
+.ok{color:green;}
+.err{color:red;}
+</style>
+</head>
+
+<body>
+
+<h2>Game Ô Vuông – Đánh bằng số</h2>
+
+<div>
+Size (3–20):
+<input id="sizeInput" type="number" min="3" max="20" value="6">
+<button onclick="init()">Tạo bàn cờ</button>
+</div>
+
+<p>
+Lượt: <b id="turn">X</b> |
+X: <span id="sx">0</span> |
+O: <span id="so">0</span>
+</p>
+
+<div>
+Nhập mã:
+<input id="codeInput" placeholder="VD: 10203">
+<button onclick="playByCode()">Đánh</button>
+<button onclick="undo()">Undo</button>
+</div>
+
+<div id="msg"></div>
+<p>Nước gần nhất: <b id="last">---</b></p>
+
+<div id="board"></div>
+
+<script>
+let SIZE=6;
+let turn="X", sx=0, so=0;
+let h,v,cell;
+let history=[];
+let lastMove=null; // {t,x,y}
+
+const board=document.getElementById("board");
+const msg=document.getElementById("msg");
+const turnEl=document.getElementById("turn");
+const sxEl=document.getElementById("sx");
+const soEl=document.getElementById("so");
+const lastEl=document.getElementById("last");
+
+/* ================= INIT ================= */
+function init(){
+    SIZE=parseInt(sizeInput.value);
+    if(SIZE<3||SIZE>20){
+        showMsg("Size phải từ 3 đến 20",true); return;
+    }
+    turn="X"; sx=0; so=0;
+    history=[];
+    lastMove=null;
+
+    h=Array(SIZE+1).fill().map(()=>Array(SIZE).fill(null));
+    v=Array(SIZE).fill().map(()=>Array(SIZE+1).fill(null));
+    cell=Array(SIZE).fill().map(()=>Array(SIZE).fill(null));
+
+    board.style.gridTemplateColumns=`repeat(${SIZE*2+1},40px)`;
+    board.style.gridTemplateRows=`repeat(${SIZE*2+1},40px)`;
+
+    showMsg("Đã tạo bàn cờ mới",false);
+    draw(); update();
+}
+
+/* ================= DRAW ================= */
+function draw(){
+    board.innerHTML="";
+    for(let r=0;r<SIZE*2+1;r++){
+        for(let c=0;c<SIZE*2+1;c++){
+            if(r%2==0&&c%2==0) board.appendChild(dot());
+            else if(r%2==0) board.appendChild(hLine(r/2,(c-1)/2));
+            else if(c%2==0) board.appendChild(vLine((r-1)/2,c/2));
+            else board.appendChild(box((r-1)/2,(c-1)/2));
+        }
+    }
+}
+
+const dot=()=>Object.assign(document.createElement("div"),{className:"dot"});
+
+/* ================= LINES ================= */
+function hLine(y,x){
+    let d=document.createElement("div");
+    d.className="h-line";
+    if(h[y][x]){
+        d.classList.add("line",h[y][x].toLowerCase());
+        if(isLast("H",x,y)) d.classList.add("highlight");
+    }
+    d.onclick=()=>move("H",x,y,true);
+    return d;
+}
+
+function vLine(y,x){
+    let d=document.createElement("div");
+    d.className="v-line";
+    if(v[y][x]){
+        d.classList.add("line",v[y][x].toLowerCase());
+        if(isLast("V",x,y)) d.classList.add("highlight");
+    }
+    d.onclick=()=>move("V",x,y,true);
+    return d;
+}
+
+function box(y,x){
+    let d=document.createElement("div");
+    d.className="cell";
+    if(cell[y][x]){
+        d.textContent=cell[y][x];
+        d.classList.add(cell[y][x].toLowerCase());
+    }
+    return d;
+}
+
+/* ================= LOGIC ================= */
+function decode(code){
+    let t=Math.floor(code/10000);
+    let x=Math.floor(code%10000/100);
+    let y=code%100;
+    if(t!==1&&t!==2) return null;
+    return {t:t==1?"H":"V",x,y};
+}
+
+function validMove(t,x,y){
+    if(t=="H"){
+        if(y<0||y>SIZE||x<0||x>=SIZE) return "Tọa độ H vượt biên";
+        if(h[y][x]) return "Cạnh này đã được đánh";
+    }
+    if(t=="V"){
+        if(y<0||y>=SIZE||x<0||x>SIZE) return "Tọa độ V vượt biên";
+        if(v[y][x]) return "Cạnh này đã được đánh";
+    }
+    return null;
+}
+
+function move(t,x,y){
+    let err=validMove(t,x,y);
+    if(err){ showMsg(err,true); return; }
+
+    history.push(JSON.stringify({h,v,cell,turn,sx,so,lastMove}));
+
+    if(t=="H") h[y][x]=turn;
+    else v[y][x]=turn;
+
+    lastMove={t,x,y};
+
+    let scored=false;
+    for(let Y=0;Y<SIZE;Y++)for(let X=0;X<SIZE;X++){
+        if(!cell[Y][X]&&h[Y][X]&&h[Y+1][X]&&v[Y][X]&&v[Y][X+1]){
+            cell[Y][X]=turn;
+            scored=true;
+            turn=="X"?sx++:so++;
+        }
+    }
+
+    lastEl.textContent=(t=="H"?1:2)*10000+x*100+y;
+    showMsg("Nước đi hợp lệ ✔",false);
+
+    if(!scored) turn=turn=="X"?"O":"X";
+    update(); draw();
+    checkWin();
+
+}
+
+function checkWin(){
+    if(sx + so !== SIZE * SIZE) return;
+
+    setTimeout(()=>{
+        if(sx > so){
+            alert("🎉 X CHIẾN THẮNG! (" + sx + " vs " + so + ")");
+        }else if(so > sx){
+            alert("🎉 O CHIẾN THẮNG! (" + so + " vs " + sx + ")");
+        }else{
+            alert("🤝 HÒA! (" + sx + " - " + so + ")");
+        }
+    }, 50);
+}
+
+
+/* ================= INPUT ================= */
+function playByCode(){
+    let code=parseInt(codeInput.value);
+    if(isNaN(code)){ showMsg("Mã phải là số",true); return; }
+    let d=decode(code);
+    if(!d){ showMsg("Mã không hợp lệ",true); return; }
+    move(d.t,d.x,d.y);
+}
+
+function undo(){
+    if(!history.length){ showMsg("Không còn nước để undo",true); return; }
+    let s=JSON.parse(history.pop());
+    ({h,v,cell,turn,sx,so,lastMove}=s);
+    showMsg("Đã undo 1 nước",false);
+    update(); draw();
+}
+
+/* ================= UI ================= */
+function update(){
+    turnEl.textContent=turn;
+    sxEl.textContent=sx;
+    soEl.textContent=so;
+}
+
+function showMsg(text,isErr){
+    msg.textContent=text;
+    msg.className=isErr?"err":"ok";
+}
+
+function isLast(t,x,y){
+    return lastMove && lastMove.t==t && lastMove.x==x && lastMove.y==y;
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Game Hub</title>
+
+<style>
+/* ===== THEME ===== */
+:root{
+    --bg:#f4f4f4;
+    --card:#ffffff;
+    --text:#111;
+    --accent:#ff7a18;
+    --shadow:0 4px 14px rgba(0,0,0,0.15);
+}
+body.dark{
+    --bg:#121212;
+    --card:#1e1e1e;
+    --text:#f1f1f1;
+    --accent:#ffa040;
+    --shadow:0 4px 16px rgba(0,0,0,0.6);
+}
+
+/* ===== BASE ===== */
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    transition:0.3s;
+}
+
+/* ===== HEADER ===== */
+header{
+    background:var(--card);
+    padding:12px 16px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    box-shadow:var(--shadow);
+    position:sticky;
+    top:0;
+    z-index:5;
+}
+
+header span{
+    font-size:18px;
+    font-weight:bold;
+}
+
+.toggle{
+    cursor:pointer;
+    padding:6px 14px;
+    border-radius:20px;
+    background:var(--accent);
+    color:white;
+    font-size:14px;
+    user-select:none;
+}
+
+/* ===== MENU GRID ===== */
+#menu{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+    gap:16px;
+    padding:16px;
+}
+
+/* ===== CARD ===== */
+.card{
+    background:var(--card);
+    border-radius:18px;
+    overflow:hidden;
+    cursor:pointer;
+    box-shadow:var(--shadow);
+    transition:0.2s;
+    display:flex;
+    flex-direction:column;
+}
+
+.card:hover{
+    transform:translateY(-4px);
+}
+
+.card:active{
+    transform:scale(0.97);
+}
+
+/* ===== IMAGE PREVIEW (FIX CÂN ĐỐI) ===== */
+.thumb{
+    height:130px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(135deg,#00000015,#00000005);
+}
+
+.thumb img{
+    max-width:90%;
+    max-height:90%;
+    object-fit:contain;
+}
+
+/* ===== TITLE ===== */
+.card-title{
+    padding:12px 8px;
+    text-align:center;
+    font-size:16px;
+    font-weight:bold;
+}
+
+/* ===== GAME VIEW ===== */
+#gameView{
+    display:none;
+    height:calc(100vh - 56px);
+}
+
+#gameFrame{
+    width:100%;
+    height:100%;
+    border:none;
+    background:black;
+}
+
+/* ===== BACK BUTTON ===== */
+#backBtn{
+    position:fixed;
+    top:72px;
+    left:12px;
+    z-index:10;
+    padding:8px 16px;
+    background:var(--accent);
+    color:white;
+    border:none;
+    border-radius:24px;
+    font-size:14px;
+    box-shadow:var(--shadow);
+    cursor:pointer;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (min-width:600px){
+    .thumb{ height:150px; }
+}
+
+@media (min-width:900px){
+    #menu{
+        padding:30px;
+        gap:22px;
+    }
+    .thumb{ height:170px; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <span>🎮 MINI GAME HUB</span>
+    <div class="toggle" onclick="toggleMode()">🌙 / ☀</div>
+</header>
+
+<!-- ===== MENU ===== -->
+<div id="menu">
+
+    <div class="card" onclick="openGame('dots.html')">
+        <div class="thumb">
+            <img src="preview/dots.jpg" alt="Dots & Boxes">
+        </div>
+        <div class="card-title">Dots & Boxes</div>
+    </div>
+
+    <div class="card" onclick="openGame('bingo4.html')">
+        <div class="thumb">
+            <img src="preview/bingo.png" alt="Bingo">
+        </div>
+        <div class="card-title">Bingo</div>
+    </div>
+
+    <div class="card" onclick="openGame('caro.html')">
+        <div class="thumb">
+            <img src="preview/caro.jpg" alt="Caro">
+        </div>
+        <div class="card-title">Caro</div>
+    </div>
+
+    <!--
+    <div class="card" onclick="openGame('samloc.html')">
+        <div class="thumb">
+            <img src="preview/samloc.png" alt="Sâm Lốc">
+        </div>
+        <div class="card-title">Sâm Lốc</div>
+    </div>
+    -->
+
+</div>
+
+<!-- ===== GAME VIEW ===== -->
+<div id="gameView">
+    <button id="backBtn" onclick="back()">⬅ Menu</button>
+    <iframe id="gameFrame"></iframe>
+</div>
+
+<script>
+function openGame(file){
+    document.getElementById("menu").style.display="none";
+    document.getElementById("gameView").style.display="block";
+    document.getElementById("gameFrame").src=file;
+}
+
+function back(){
+    document.getElementById("gameFrame").src="";
+    document.getElementById("gameView").style.display="none";
+    document.getElementById("menu").style.display="grid";
+}
+
+/* ===== DARK MODE ===== */
+function toggleMode(){
+    document.body.classList.toggle("dark");
+    localStorage.setItem("dark",
+        document.body.classList.contains("dark"));
+}
+
+if(localStorage.getItem("dark")==="true"){
+    document.body.classList.add("dark");
+}
+</script>
+
+</body>
+</html>

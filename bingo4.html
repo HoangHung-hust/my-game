@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Bingo Dynamic</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #ececec;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+#game {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    text-align: center;
+}
+
+#controls {
+    margin-bottom: 10px;
+}
+
+#controls > * {
+    margin: 4px;
+}
+
+#status {
+    margin: 8px 0 12px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+#board {
+    display: grid;
+    gap: 6px;
+    justify-content: center;
+}
+
+button.cell {
+    font-weight: bold;
+    background: #aaa;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+button.cell:hover {
+    transform: scale(1.05);
+}
+
+button.cell.active {
+    background: var(--cell-color);
+    color: white;
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+    <div id="controls">
+        🔲 Kích thước:
+        <select id="sizeSelect">
+            <option value="5">5 x 5</option>
+            <option value="6">6 x 6</option>
+            <option value="7">7 x 7</option>
+            <option value="8">8 x 8</option>
+            <option value="9">9 x 9</option>
+            <option value="10">10 x 10</option>
+        </select>
+
+        🎨 Màu:
+        <input type="color" id="colorPicker" value="#00aa00">
+
+        <br>
+
+        🔢 Nhập số:
+        <input type="number" id="numberInput" style="width:80px">
+        <button onclick="markNumber()">Đánh dấu</button>
+
+        <button onclick="resetGame()">Reset</button>
+    </div>
+
+    <div id="status">
+        🔢 Số dòng Bingo: <span id="lineCount">0</span>
+    </div>
+
+    <div id="board"></div>
+
+</div>
+
+<script>
+const board = document.getElementById("board");
+const sizeSelect = document.getElementById("sizeSelect");
+const colorPicker = document.getElementById("colorPicker");
+const lineCountLabel = document.getElementById("lineCount");
+const numberInput = document.getElementById("numberInput");
+
+let size = 5;
+let numbers = [];
+let active = [];
+
+// ======================
+// Fisher–Yates Shuffle
+// ======================
+function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+// ======================
+// Create Board
+// ======================
+function createBoard() {
+    size = parseInt(sizeSelect.value);
+    const total = size * size;
+
+    board.innerHTML = "";
+    numbers = shuffle([...Array(total).keys()].map(i => i + 1));
+    active = new Array(total).fill(false);
+    lineCountLabel.textContent = 0;
+
+    board.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+
+    const cellSize = Math.max(40, 500 / size);
+    const fontSize = cellSize * 0.45;
+
+    document.documentElement.style.setProperty(
+        "--cell-color", colorPicker.value
+    );
+
+    numbers.forEach((num, i) => {
+        const btn = document.createElement("button");
+        btn.className = "cell";
+        btn.textContent = num;
+        btn.style.width = cellSize + "px";
+        btn.style.height = cellSize + "px";
+        btn.style.fontSize = fontSize + "px";
+
+        // TOGGLE khi click
+        btn.onclick = () => {
+            active[i] = !active[i];
+            btn.classList.toggle("active", active[i]);
+            updateStatus();
+        };
+
+        board.appendChild(btn);
+    });
+}
+
+// ======================
+// Bingo Logic
+// ======================
+function checkLine(indexes) {
+    return indexes.every(i => active[i]);
+}
+
+function countLines() {
+    let lines = 0;
+
+    // rows
+    for (let r = 0; r < size; r++) {
+        const row = [];
+        for (let c = 0; c < size; c++) {
+            row.push(r * size + c);
+        }
+        if (checkLine(row)) lines++;
+    }
+
+    // cols
+    for (let c = 0; c < size; c++) {
+        const col = [];
+        for (let r = 0; r < size; r++) {
+            col.push(r * size + c);
+        }
+        if (checkLine(col)) lines++;
+    }
+
+    // main diagonal
+    const diag1 = [];
+    for (let i = 0; i < size; i++) {
+        diag1.push(i * size + i);
+    }
+    if (checkLine(diag1)) lines++;
+
+    // secondary diagonal
+    const diag2 = [];
+    for (let i = 0; i < size; i++) {
+        diag2.push(i * size + (size - 1 - i));
+    }
+    if (checkLine(diag2)) lines++;
+
+    return lines;
+}
+
+// ======================
+// Update Status
+// ======================
+function updateStatus() {
+    const lines = countLines();
+    lineCountLabel.textContent = lines;
+
+    if (lines >= size) {
+        setTimeout(() => {
+            alert(`🎉 BINGO! Hoàn thành ${lines} dòng`);
+        }, 100);
+    }
+}
+
+// ======================
+// Mark number by input
+// ======================
+function markNumber() {
+    const value = parseInt(numberInput.value);
+    if (isNaN(value)) return;
+
+    const index = numbers.indexOf(value);
+    if (index === -1) {
+        alert("❌ Số không tồn tại trên bảng");
+        return;
+    }
+
+    // TOGGLE giống click
+    active[index] = !active[index];
+    board.children[index].classList.toggle("active", active[index]);
+
+    updateStatus();
+    numberInput.value = "";
+}
+
+// Enter để đánh dấu
+numberInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") markNumber();
+});
+
+// ======================
+// Reset
+// ======================
+function resetGame() {
+    createBoard();
+}
+
+// Events
+sizeSelect.onchange = resetGame;
+colorPicker.onchange = () => {
+    document.documentElement.style.setProperty(
+        "--cell-color", colorPicker.value
+    );
+};
+
+// Init
+createBoard();
+</script>
+
+</body>
+</html>
