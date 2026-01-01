@@ -10,6 +10,7 @@ body{
     color:#eee;
     font-family:Arial;
     text-align:center;
+    margin:0;
 }
 
 #topbar{
@@ -36,29 +37,44 @@ button{
     font-size:16px;
 }
 
+/* ===== BOARD ===== */
 #board{
     display:grid;
     grid-template-columns:repeat(15,36px);
-    gap:0px;
+    gap:0;                     /* ❗ KHÔNG gap */
     justify-content:center;
     margin:15px auto;
 }
 
+/* ===== CELL ===== */
 .cell{
     width:36px;
     height:36px;
     background:#222;
-    border:1px solid #444;
+    box-sizing:border-box;   /* ⭐ QUAN TRỌNG */
+
+    border:1px solid #444;   /* vẽ đủ 4 cạnh */
+    margin:0;                /* không hở */
+
     font-size:22px;
     line-height:36px;
     cursor:pointer;
     user-select:none;
 }
 
+/* bỏ viền dư */
+.cell:nth-child(15n){
+    border-right:none;
+}
+#board > .cell:nth-last-child(-n+15){
+    border-bottom:none;
+}
+
+/* quân */
 .X{ color:#ff5252; }
 .O{ color:#4fc3f7; }
 
-/* ⭐ Highlight CHỮ vừa đánh */
+/* ⭐ highlight chữ vừa đánh */
 .last-text{
     text-shadow:
         0 0 6px currentColor,
@@ -150,7 +166,6 @@ function playByInput(){
 function place(r,c,code){
     if(gameOver || board[r][c]!="") return;
 
-    // ❌ bỏ highlight chữ cũ
     const old = document.querySelector(".last-text");
     if(old) old.classList.remove("last-text");
 
@@ -159,7 +174,7 @@ function place(r,c,code){
 
     board[r][c] = currentPlayer;
     cell.textContent = currentPlayer;
-    cell.classList.add(currentPlayer, "last-text");
+    cell.classList.add(currentPlayer,"last-text");
 
     history.push({r,c,player:currentPlayer,code});
     infoDiv.textContent = `Nước vừa đánh: ${currentPlayer} → ${code}`;
@@ -195,7 +210,6 @@ function undo(){
     currentPlayer = last.player;
     turnSpan.textContent = currentPlayer;
 
-    // highlight lại chữ trước
     const old = document.querySelector(".last-text");
     if(old) old.classList.remove("last-text");
 
@@ -239,4 +253,3 @@ init();
 
 </body>
 </html>
-
