@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Ai Là Triệu Phú</title>
+
+<style>
+body{
+    margin:0;
+    background:radial-gradient(circle at top, #1b2b52, #020824);
+    font-family:Tahoma, Arial;
+    color:#fff;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+#game{ width:900px; text-align:center; }
+
+#title{
+    font-size:36px;
+    color:#ffd700;
+    text-shadow:0 0 10px #ffd700;
+    margin-bottom:20px;
+}
+
+#questionBox {
+    border: 3px solid #ffd700;
+    border-radius: 20px;
+    padding: 25px;
+    font-size: 22px; /* Có thể giảm xuống 20px nếu bạn hay dùng câu hỏi dài */
+    background: #06132a;
+    margin-bottom: 20px;
+    
+    /* min-height: 100px; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    word-wrap: break-word; 
+    overflow-wrap: break-word; */
+}
+
+#answers{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:15px;
+}
+
+.answer{
+    padding:15px;
+    border-radius:30px;
+    background:#0b2a4d;
+    border:2px solid #1e90ff;
+    cursor:pointer;
+    font-size:18px;
+    text-align:left;
+}
+
+.answer span{ color:#ffd700; font-weight:bold; }
+
+.correct{ background:#2ecc71!important; color:#000; }
+.wrong{ background:#e74c3c!important; }
+
+@keyframes blinkGreen{
+    0%{ box-shadow:0 0 5px #2ecc71; }
+    50%{ box-shadow:0 0 25px #2ecc71; background:#2ecc71; color:#000;}
+    100%{ box-shadow:0 0 5px #2ecc71; }
+}
+.blink{ animation:blinkGreen .5s infinite; }
+
+#lifelines{
+    display:flex;
+    justify-content:space-around;
+    margin:20px 0;
+}
+
+.lifeline{
+    background:#ffd700;
+    color:#000;
+    padding:10px 15px;
+    border-radius:20px;
+    cursor:pointer;
+    font-weight:bold;
+}
+.lifeline.used{
+    opacity:.4;
+    pointer-events:none;
+}
+
+#info{
+    display:flex;
+    justify-content:space-between;
+    margin-top:15px;
+}
+
+/* POPUP */
+#popup{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.8);
+    display:none;
+    justify-content:center;
+    align-items:center;
+    z-index:999;
+}
+
+#popupContent{
+    background:linear-gradient(#0b2a4d,#06132a);
+    border:3px solid #ffd700;
+    border-radius:25px;
+    padding:25px;
+    width:420px;
+    text-align:center;
+    box-shadow:0 0 25px rgba(255,215,0,.5);
+}
+
+/* BIỂU ĐỒ CỘT DỌC */
+.chart{
+    display:flex;
+    justify-content:space-around;
+    align-items:flex-end;
+    height:200px;
+    margin-top:20px;
+}
+
+.col{
+    width:50px;
+    background:#1e90ff;
+    text-align:center;
+    border-radius:10px 10px 0 0;
+    position:relative;
+}
+
+.col span{
+    position:absolute;
+    top:-25px;
+    width:100%;
+    font-size:14px;
+}
+
+.col label{
+    display:block;
+    margin-top:5px;
+    font-weight:bold;
+}
+
+/* RESTART */
+#restart{
+    margin-top:20px;
+    padding:10px 20px;
+    font-size:18px;
+    border:none;
+    border-radius:20px;
+    background:#ffd700;
+    cursor:pointer;
+}
+
+.popup-btn{
+    margin-top:15px;
+    padding:10px 30px;
+    border:none;
+    border-radius:25px;
+    font-size:16px;
+    font-weight:bold;
+    cursor:pointer;
+    background:linear-gradient(#ffd700,#ffb400);
+    color:#000;
+    box-shadow:0 3px 10px rgba(255,215,0,.6);
+}
+
+.popup-btn:hover{
+    transform:scale(1.05);
+    box-shadow:0 0 15px #ffd700;
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+    <div id="title">AI LÀ TRIỆU PHÚ</div>
+
+    <div id="lifelines">
+        <div class="lifeline" onclick="use5050(this)">50/50</div>
+        <div class="lifeline" onclick="callBro(this)">📞 Ông anh 96 BK</div>
+        <div class="lifeline" onclick="askAudience(this)">👥 Khán giả</div>
+        <div class="lifeline" onclick="askAI(this)">🤖 Hỏi AI</div>
+    </div>
+
+    <div id="questionBox"></div>
+    <div id="answers"></div>
+
+    <div id="info">
+    <div id="question" style="font-weight:bold; color:#ffd700;"></div>
+    <div id="money"></div>
+</div>
+</div>
+
+<div id="popup">
+    <div id="popupContent"></div>
+</div>
+
+<script>
+/* ===== DATA ===== */
+const QUESTIONS = [
+    // LEVEL 1: KIẾN THỨC PHỔ THÔNG / CƠ BẢN 
+    {level:1, q:"Thủ đô của Việt Nam là gì?", a:["TP. Hồ Chí Minh","Đà Nẵng","Hà Nội","Huế"], c:2},
+    {level:1, q:"Đại dương nào lớn nhất thế giới?", a:["Ấn Độ Dương","Đại Tây Dương","Bắc Băng Dương","Thái Bình Dương"], c:3},
+    {level:1, q:"Trong Tiếng Anh, 'Apple' nghĩa là gì?", a:["Quả cam","Quả táo","Quả chuối","Quả nho"], c:1},
+    {level:1, q:"Công thức hóa học của nước là gì?", a:["CO2","H2O","O2","NaCl"], c:1},
+    {level:1, q:"Hành tinh nào gần Mặt trời nhất?", a:["Kim tinh","Thủy tinh","Hỏa tinh","Trái Đất"], c:1},
+    {level:1, q:"Ai là tác giả của Truyện Kiều?", a:["Nguyễn Khuyến","Nguyễn Du","Bà Huyện Thanh Quan","Tú Xương"], c:1},
+    {level:1, q:"Nhân vật thám tử lừng danh trong truyện tranh Nhật Bản là ai?", a:["Luffy","Conan","Naruto","Doraemon"], c:1},
+    {level:1, q:"Màu sắc nào là sự kết hợp giữa đỏ và vàng?", a:["Xanh lá","Tím","Cam","Hồng"], c:2},
+    {level:1, q:"Loài chim nào không thể bay?", a:["Đà điểu","Chim sẻ","Đại bàng","Cú mèo"], c:0},
+    {level:1, q:"Quốc gia có diện tích lớn nhất thế giới?", a:["Mỹ","Trung Quốc","Nga","Canada"], c:2},
+    {level:1, q:"Bộ phận nào của cây làm nhiệm vụ quang hợp?", a:["Rễ","Thân","Lá","Hoa"], c:2},
+    {level:1, q:"Trong môn bóng đá, mỗi đội có bao nhiêu người trên sân?", a:["9","10","11","12"], c:2},
+    {level:1, q:"Kim loại nào ở thể lỏng ở nhiệt độ phòng?", a:["Sắt","Vàng","Thủy ngân","Đồng"], c:2},
+    {level:1, q:"Lục địa nào lạnh nhất thế giới?", a:["Châu Âu","Châu Á","Châu Phi","Châu Nam Cực"], c:3},
+    {level:1, q:"Ngày Quốc khánh Việt Nam là ngày nào?", a:["30/4","1/5","2/9","22/12"], c:2},
+    {level:1, q:"Nhạc cụ nào sau đây có 88 phím?", a:["Guitar","Piano","Violin","Sáo"], c:1},
+    {level:1, q:"Người tinh khôn bắt đầu xuất hiện vào thời kỳ nào?", a:["Đá cũ","Đá mới","Đồ đồng","Đồ sắt"], c:0},
+    {level:1, q:"Đơn vị đo cường độ dòng điện là gì?", a:["Vôn","Ampe","Watt","Ohm"], c:1},
+    {level:1, q:"Vitamin nào có nhiều trong quả cam?", a:["A","B","C","D"], c:2},
+    {level:1, q:"Tác phẩm 'Lão Hạc' của Nam Cao thuộc thể loại nào?", a:["Thơ","Truyện ngắn","Tiểu thuyết","Kịch"], c:1},
+    {level:1, q:"Hành tinh nào được gọi là Hành tinh Đỏ?", a:["Kim tinh","Thủy tinh","Hỏa tinh","Mộc tinh"], c:2},
+    {level:1, q:"Loại axit nào có trong dạ dày người?", a:["H2SO4","HCl","HNO3","CH3COOH"], c:1},
+    {level:1, q:"Đơn vị đo cường độ âm thanh là gì?", a:["Hertz","Watt","Decibel","Volt"], c:2},
+    {level:1, q:"Quốc gia nào có diện tích nhỏ nhất thế giới?", a:["Monaco","San Marino","Vatican","Malta"], c:2},
+    {level:1, q:"Nguyên tố hóa học nào có ký hiệu là Fe?", a:["Đồng","Sắt","Bạc","Chì"], c:1},
+    {level:1, q:"Sông nào dài nhất Việt Nam?", a:["Sông Hồng","Sông Đồng Nai","Sông Mê Kông","Sông Đà"], c:2},
+    {level:1, q:"Đỉnh núi cao nhất Việt Nam là đỉnh nào?", a:["Fansipan","Pusilung","Putaleng","Ky Quan San"], c:0},
+    {level:1, q:"Lễ hội đền Hùng diễn ra vào ngày nào âm lịch?", a:["10/1","10/3","10/5","10/8"], c:1},
+    {level:1, q:"Đại dương nào bao quanh Bắc Cực?", a:["Thái Bình Dương","Bắc Băng Dương","Đại Tây Dương","Ấn Độ Dương"], c:1},
+    {level:1, q:"Mona Lisa là tác phẩm của họa sĩ nào?", a:["Picasso","Van Gogh","Leonardo da Vinci","Rembrandt"], c:2},
+    {level:1, q:"Ngày nào là ngày Quốc tế Phụ nữ?", a:["20/10","8/3","14/2","1/6"], c:1},
+    {level:1, q:"Thành phố nào được mệnh danh là 'Thành phố Hoa phượng đỏ'?", a:["Đà Nẵng","Cần Thơ","Hải Phòng","Huế"], c:2},
+    {level:1, q:"Kim loại nào dẫn điện tốt nhất?", a:["Vàng","Đồng","Bạc","Nhôm"], c:2},
+    {level:1, q:"Trong cờ vua, quân nào chỉ đi chéo?", a:["Xe","Mã","Tượng","Hậu"], c:2},
+    {level:1, q:"Khí nào cần thiết cho sự hô hấp?", a:["Nitơ","Oxy","Cacbonic","Hydro"], c:1},
+    {level:1, q:"Quần đảo Trường Sa thuộc tỉnh nào của Việt Nam?", a:["Đà Nẵng","Quảng Nam","Khánh Hòa","Bình Thuận"], c:2},
+    {level:1, q:"Đơn vị đo lực là gì?", a:["Joule","Pascal","Newton","Watt"], c:2},
+    {level:1, q:"Tháp nghiêng Pisa nằm ở quốc gia nào?", a:["Pháp","Ý","Đức","Hy Lạp"], c:1},
+    {level:1, q:"Con vật nào là biểu tượng của ngành y?", a:["Chim bồ câu","Con rắn","Con hổ","Con voi"], c:1},
+    {level:1, q:"Đơn vị đo tần số là gì?", a:["Hertz","Decibel","Newton","Lux"], c:0},
+    {level:1, q:"Trong vật lý, gia tốc trọng trường g xấp xỉ bằng?", a:["8.9 m/s2","9.8 m/s2","10.5 m/s2","7.5 m/s2"], c:1},
+    {level:1, q:"Chiến thắng Điện Biên Phủ diễn ra vào năm nào?", a:["1945","1954","1968","1975"], c:1},
+    {level:1, q:"Đơn vị đo công suất là gì?", a:["Joule","Newton","Pascal","Watt"], c:3},
+    {level:1, q:"Mã Morse dùng ký hiệu nào?", a:["Số và chữ","Chấm và gạch","Hình vẽ","Màu sắc"], c:1},
+    {level:1, q:"Quá trình biến đổi từ thể khí sang thể lỏng gọi là gì?", a:["Bay hơi","Nóng chảy","Ngưng tụ","Đông đặc"], c:2},
+    {level:1, q:"Chất khí nào chiếm tỉ lệ cao nhất trong không khí?", a:["Oxy","Nitơ","Cacbonic","Argon"], c:1},
+    {level:1, q:"Chất nào sau đây không phải là chất dẫn điện?", a:["Đồng","Nhôm","Nhựa","Sắt"], c:2},
+    {level:1, q:"Loại đá nào được hình thành từ sự phun trào núi lửa?", a:["Đá trầm tích","Đá biến chất","Đá magma","Đá vôi"], c:2},
+    {level:1, q:"Số Pi (π) là loại số nào?", a:["Số hữu tỉ","Số nguyên","Số vô tỉ","Số tự nhiên"], c:2},
+    {level:1, q:"Vị vua nào được coi là người sáng lập ra triều đại nhà Lý?", a:["Lý Thái Tổ","Lý Thái Tông","Lý Nhân Tông","Lý Thánh Tông"], c:0},
+    {level:1, q:"Ai là người lãnh đạo cuộc khởi nghĩa Lam Sơn chống quân Minh?", a:["Lê Thánh Tông","Lê Lợi","Nguyễn Trãi","Lê Hoàn"], c:1},
+    {level:1, q:"Vạn Lý Trường Thành là công trình vĩ đại của quốc gia nào?", a:["Việt Nam","Hàn Quốc","Trung Quốc","Nhật Bản"], c:2},
+    {level:1, q:"Hoàng đế đầu tiên thống nhất Trung Quốc là ai?", a:["Hán Vũ Đế","Tần Thủy Hoàng","Đường Thái Tông","Khang Hy"], c:1},
+    {level:1, q:"Triều đại cuối cùng của lịch sử phong kiến Việt Nam là?", a:["Nhà Lê","Nhà Trần","Nhà Nguyễn","Nhà Tây Sơn"], c:2},
+    {level:1, q:"Quốc gia cổ đại nào của người Việt đóng đô ở Phong Châu (Phú Thọ)?", a:["Âu Lạc","Văn Lang","Đại Cồ Việt","Đại Việt"], c:1},
+    {level:1, q:"Lý Thường Kiệt nổi tiếng với chiến công trên dòng sông nào?", a:["Sông Bạch Đằng","Sông Như Nguyệt","Sông Gianh","Sông Nhật Lệ"], c:1},
+    {level:1, q:"Ba lần đại thắng quân Nguyên Mông gắn liền với triều đại nào?", a:["Nhà Đinh","Nhà Lý","Nhà Trần","Nhà Hồ"], c:2},
+    {level:1, q:"Cuộc khởi nghĩa Hai Bà Trưng chống lại quân xâm lược nào?", a:["Nhà Hán","Nhà Đường","Nhà Tống","Nhà Minh"], c:0},
+    {level:1, q:"Người anh hùng áo vải cờ đào Quang Trung - Nguyễn Huệ đại phá quân Thanh vào năm nào?", a:["1788","1789","1802","1771"], c:1},
+    {level:1, q:"Bộ truyện 'Tam Quốc Diễn Nghĩa' kể về thời kỳ lịch sử của nước nào?", a:["Việt Nam","Hàn Quốc","Trung Quốc","Thái Lan"], c:2},
+    {level:1, q:"Bác Hồ đọc bản Tuyên ngôn Độc lập tại đâu?", a:["Phủ Chủ tịch","Quảng trường Ba Đình","Hang Pác Bó","Bến Nhà Rồng"], c:1},
+    {level:1, q:"Điền vào chỗ trống: 'Anh ấy đang đứng ... lự giữa hai lựa chọn'.", a:["Lưỡng","Nhướng","Lướng","Nưỡng"], c:0},
+    {level:1, q:"Từ nào viết ĐÚNG để chỉ sự ngăn nắp?", a:["Gọn gàng","Gọn gàn","Gọn giàng","Gọn dàn"], c:0},
+    {level:1, q:"Từ nào mô tả đúng trạng thái 'không biết gì'?", a:["Ngây ngô","Ngây ngồ","Ngây ngầu","Ngây ngôc"], c:0},
+    {level:1, q:"Chọn từ viết đúng chính tả trong các từ sau:", a:["Thúc dục", "Dữ dội", "Giành giụm", "Giữ dìn"], c:1},
+    {level:1, q:"Chọn từ viết đúng chính tả trong các từ sau:", a:["Nóng nảy", "Lảy mầm", "Tiếng nóng", "nong nanh"], c:0},
+
+    // LEVEL 2: KIẾN THỨC TRUNG CẤP
+    {level:2, q:"Vị vua nào đã đặt tên nước ta là Vạn Xuân?", a:["Lý Thái Tổ","Lý Bí","Ngô Quyền","Đinh Bộ Lĩnh"], c:1},
+    {level:2, q:"Đâu là một loại nhạc cụ dây?", a:["Sáo","Trống","Cello","Clarinet"], c:2},
+    {level:2, q:"Nguyên tố hóa học phổ biến nhất trong vũ trụ?", a:["Oxy","Nitơ","Hydro","Heli"], c:2},
+    {level:2, q:"Nơi sâu nhất của đại dương nằm ở đâu?", a:["Vực Mariana","Rãnh Java","Khe Puerto Rico","Rãnh Molloy"], c:0},
+    {level:2, q:"Thành phố nào được gọi là 'Thành phố Ánh sáng'?", a:["New York","London","Paris","Tokyo"], c:2},
+    {level:2, q:"Hệ cơ quan nào điều khiển mọi hoạt động của cơ thể?", a:["Tuần hoàn","Tiêu hóa","Thần kinh","Hô hấp"], c:2},
+    {level:2, q:"Đỉnh núi cao nhất thế giới Everest thuộc dãy núi nào?", a:["Andes","Alps","Himalaya","Rocky"], c:2},
+    {level:2, q:"Ai là người đầu tiên đặt chân lên Mặt Trăng?", a:["Yuri Gagarin","Neil Armstrong","Buzz Aldrin","Elon Musk"], c:1},
+    {level:2, q:"Quốc gia nào có đường bờ biển dài nhất thế giới?", a:["Việt Nam","Úc","Canada","Nga"], c:2},
+    {level:2, q:"Máu người có màu đỏ là do thành phần nào?", a:["Bạch cầu","Tiểu cầu","Huyết tương","Hemoglobin"], c:3},
+    {level:2, q:"Tác phẩm 'Bình Ngô Đại Cáo' do ai viết?", a:["Trần Hưng Đạo","Nguyễn Trãi","Lê Lợi","Quang Trung"], c:1},
+    {level:2, q:"Đâu là ngôn ngữ được nói nhiều nhất thế giới (theo số người bản ngữ)?", a:["Tiếng Anh","Tiếng Tây Ban Nha","Tiếng Trung Quốc","Tiếng Ấn Độ"], c:2},
+    {level:2, q:"Trong hóa học, độ pH bằng 7 là môi trường gì?", a:["Axit","Bazơ","Trung tính","Muối"], c:2},
+    {level:2, q:"Kinh đô của triều đại nhà Trần nằm ở đâu?", a:["Hoa Lư","Thăng Long","Phú Xuân","Cổ Loa"], c:1},
+    {level:2, q:"Loài thực vật nào không có lá thật sự?", a:["Rêu","Dương xỉ","Cây thông","Cây lúa"], c:0},
+    {level:2, q:"Bộ phim đầu tiên của Pixar là phim nào?", a:["Cars","Toy Story","Up","Monsters Inc"], c:1},
+    {level:2, q:"Bộ xương người trưởng thành có khoảng bao nhiêu chiếc?", a:["156","206","256","306"], c:1},
+    {level:2, q:"Dòng sông dài nhất thế giới là gì?", a:["Sông Amazon","Sông Nile","Sông Mê Kông","Sông Mississipi"], c:1},
+    {level:2, q:"Ai được coi là cha đẻ của ngành hội họa Phục hưng?", a:["Picasso","Van Gogh","Leonardo da Vinci","Claude Monet"], c:2},
+    {level:2, q:"Đơn vị tiền tệ của Nhật Bản là gì?", a:["Won","Yuan","Yen","Baht"], c:2},
+    {level:2, q:"Cơ quan nào trong cơ thể giúp lọc máu?", a:["Tim","Phổi","Gan","Thận"], c:3},
+    {level:2, q:"Thuyết tương đối hẹp (E=mc^2) là của ai?", a:["Isaac Newton","Albert Einstein","Stephen Hawking","Marie Curie"], c:1},
+    {level:2, q:"Vị vua nào có thời gian trị vì lâu nhất lịch sử Việt Nam?", a:["Lý Nhân Tông","Lê Thánh Tông","Tự Đức","Bảo Đại"], c:0},
+    {level:2, q:"Nguyên tố hiếm nhất trên vỏ Trái Đất là gì?", a:["Francium","Astatine","Radon","Oganesson"], c:1},
+    {level:2, q:"Quốc gia nào không có thủ đô chính thức?", a:["Nauru","Tuvalu","Palau","Vatican"], c:0},
+    {level:2, q:"Hành tinh nào trong hệ Mặt Trời có một ngày dài hơn một năm của chính nó?", a:["Thủy tinh","Kim tinh","Hỏa tinh","Mộc tinh"], c:1},
+    {level:2, q:"Tác giả của thuyết tiến hóa qua chọn lọc tự nhiên là ai?", a:["Mendeleev","Darwin","Pasteur","Einstein"], c:1},
+    {level:2, q:"Loài vật nào có trái tim nằm ở đầu?", a:["Tôm","Cua","Bạch tuộc","Sao biển"], c:0},
+    {level:2, q:"Trận chiến nào kết thúc sự cai trị của Napoléon Bonaparte?", a:["Trận Borodino","Trận Waterloo","Trận Austerlitz","Trận Leipzig"], c:1},
+    {level:2, q:"Mạng lưới thần kinh của con người có bao nhiêu dây thần kinh sọ?", a:["10 đôi","12 đôi","14 đôi","16 đôi"], c:1},
+    {level:2, q:"Đâu là quốc gia duy nhất trên thế giới có quốc kỳ không phải hình chữ nhật?", a:["Thụy Sĩ","Vatican","Nepal","Bỉ"], c:2},
+    {level:2, q:"Ngôn ngữ lập trình nào được coi là 'cha đẻ' của hầu hết các ngôn ngữ hiện đại?", a:["C","B","Assembly","Fortran"], c:0},
+    {level:2, q:"Kim tự tháp Giza được xây dựng để làm lăng mộ cho Pharaoh nào?", a:["Tutankhamun","Khufu","Ramses II","Akhenaten"], c:1},
+    {level:2, q:"Bộ phận nào trong tai chịu trách nhiệm giữ thăng bằng?", a:["Màng nhĩ","Ốc tai","Tiền đình","Xương bàn đạp"], c:2},
+    {level:2, q:"Hợp chất nào khiến lá cây có màu xanh?", a:["Hemoglobin","Chlorophyll","Carotene","Melanin"], c:1},
+    {level:2, q:"Dòng hải lưu nào là nóng nhất thế giới?", a:["Kuroshio","Gulf Stream","Benguela","Humboldt"], c:1},
+    {level:2, q:"Ai là người đầu tiên tìm ra vắc-xin phòng bệnh dại?", a:["Alexander Fleming","Louis Pasteur","Edward Jenner","Robert Koch"], c:1},
+    {level:2, q:"Thành phố nào nằm trên hai lục địa Á và Âu?", a:["Moscow","Istanbul","Athens","Cairo"], c:1},
+    {level:2, q:"Trong kinh tế, hiện tượng giá cả hàng hóa tăng liên tục gọi là?", a:["Giảm phát","Lạm phát","Khủng hoảng","Bùng nổ"], c:1},
+    {level:2, q:"Ký hiệu hóa học của nguyên tố Chì là gì?", a:["Li","Pd","Pb","Sn"], c:2},
+    {level:2, q:"Quốc gia nào là quê hương của vũ điệu Flamenco?", a:["Ý","Bồ Đào Nha","Tây Ban Nha","Brazil"], c:2},
+    {level:2, q:"Vitamin nào tan trong chất béo?", a:["Vitamin B","Vitamin C","Vitamin E","Vitamin H"], c:2},
+    {level:2, q:"Cuộc cách mạng công nghiệp lần thứ nhất bắt đầu ở quốc gia nào?", a:["Mỹ","Pháp","Đức","Anh"], c:3},
+    {level:2, q:"Số lượng xương ở một bàn tay người (tính cả cổ tay) là bao nhiêu?", a:["25","27","29","31"], c:1},
+    {level:2, q:"Ai là người vẽ bức họa 'Sự ra đời của Thần Vệ Nữ'?", a:["Michelangelo","Botticelli","Raphael","Donatello"], c:1},
+    {level:2, q:"Tầng nào của khí quyển chứa lớp Ozone?", a:["Đối lưu","Bình lưu","Trung lưu","Điện ly"], c:1},
+    {level:2, q:"Eo biển nào nối giữa Biển Đen và Biển Marmara?", a:["Gibraltar","Malacca","Bosphorus","Dardanelles"], c:2},
+    {level:2, q:"Ai là người tìm ra châu Mỹ đầu tiên?", a:["Vasco da Gama","Christopher Columbus","Magellan","Marco Polo"], c:1},
+    {level:2, q:"Chất nào trong lá cây hấp thụ ánh sáng mặt trời?", a:["Diệp lục","Carotenoid","Anthocyanin","Xanthophyll"], c:0},
+    {level:2, q:"Hiện tượng cầu vồng xảy ra do hiện tượng vật lý nào?", a:["Phản xạ","Khúc xạ và tán sắc","Giao thoa","Nhiễu xạ"], c:1},
+    {level:2, q:"Triều đại nào dài nhất trong lịch sử Việt Nam?", a:["Nhà Lê","Nhà Lý","Nhà Trần","Nhà Nguyễn"], c:0},
+    {level:2, q:"Hệ Mặt Trời có bao nhiêu hành tinh chính thức?", a:["7","8","9","10"], c:1},
+    {level:2, q:"Năm ánh sáng là đơn vị đo?", a:["Thời gian","Tốc độ","Khoảng cách","Cường độ sáng"], c:2},
+    {level:2, q:"Trận thủy chiến nào kết thúc thời kỳ Bắc thuộc của Việt Nam?", a:["Trận Rạch Gầm","Trận Bạch Đằng (938)","Trận Như Nguyệt","Trận Chi Lăng"], c:1},
+    {level:2, q:"Hợp chất hữu cơ nào đơn giản nhất?", a:["Metan (CH4)","Etan (C2H6)","Benzen (C6H6)","Axetilen (C2H2)"], c:0},
+    {level:2, q:"Hợp chất hữu cơ nào giúp hoa quả chín nhanh hơn?", a:["Metan (CH4)","Etan (C2H6)","Benzen (C6H6)","Etilen (C2H4)"], c:3},
+    {level:2, q:"Người xưa thường dùng kim bạc để thử độc trong thức ăn, thực chất là để phát hiện sự hiện diện của nguyên tố nào?", a: ["Chì", "Thủy ngân", "Asen", "Cadimi"], c: 2},
+    {level:2, q:"Vị vua cuối cùng của chế độ phong kiến Việt Nam?", a:["Minh Mạng", "Hàm Nghi", "Bảo Đại", "Khải Định"], c:2},
+     {level:2, q:"Vị trạng nguyên trẻ tuổi nhất lịch sử Việt Nam là ai?", a:["Mạc Đĩnh Chi","Lương Thế Vinh","Nguyễn Hiền","Phạm Đôn Lễ"], c:2},
+    {level:2, q:"Tôn Trung Sơn là lãnh tụ của cuộc cách mạng nào ở Trung Quốc?", a:["Cách mạng Văn hóa","Cách mạng Tân Hợi","Chiến tranh thuốc phiện","Vận động Ngũ Tứ"], c:1},
+    {level:2, q:"Ai là người cắm cờ trên dinh Độc Lập ngày 30/4/1975?", a:["Bùi Quang Thận","Phạm Tuân","Võ Nguyên Giáp","Lê Trọng Tấn"], c:0},
+    {level:2, q:"Hoàng đế cuối cùng của Trung Quốc là ai?", a:["Càn Long","Khang Hy","Phổ Nghi","Quang Tự"], c:2},
+    {level:2, q:"Thăng Long được chọn làm kinh đô vào năm nào?", a:["938","1010","1225","1428"], c:1},
+    {level:2, q:"Vị vua nào nhà Trần đã đi tu và lập ra thiền phái Trúc Lâm Yên Tử?", a:["Trần Thái Tông","Trần Thánh Tông","Trần Nhân Tông","Trần Anh Tông"], c:2},
+    {level:2, q:"Nữ chính trị gia duy nhất trong lịch sử Trung Quốc chính thức xưng đế là ai?", a:["Từ Hy Thái hậu","Võ Tắc Thiên","Lữ Hậu","Vương Chính Quân"], c:1},
+    {level:2, q:"Trận thủy chiến nào nổi tiếng trong cuộc kháng chiến chống quân Nguyên lần 3?", a:["Trận Hàm Tử","Trận Chương Dương","Trận Bạch Đằng","Trận Vân Đồn"], c:2},
+    {level:2, q:"'Hịch tướng sĩ' được Trần Hưng Đạo viết trước cuộc kháng chiến chống quân Nguyên lần thứ mấy?", a:["Lần 1","Lần 2","Lần 3","Lần 4"], c:1},
+    {level:2, q:"Ai là tác giả của bộ 'Sử ký' nổi tiếng Trung Quốc?", a:["Khổng Tử","Tư Mã Thiên","Lão Tử","Chu Văn Vương"], c:1},
+    {level:2, q:"Triều đại nào ở Trung Quốc kéo dài lâu nhất lịch sử?", a:["Nhà Hán","Nhà Đường","Nhà Chu","Nhà Thanh"], c:2},
+    {level:2, q:"Người đặt nền móng cho hải quân Việt Nam thời hiện đại là ai?", a:["Võ Nguyên Giáp","Tạ Quang Bửu","Nguyễn Bình","Trần Văn Trà"], c:1},
+    {level:2, q:"Trận đánh nào được coi là bước ngoặt khiến quân Mỹ phải ký hiệp định Paris?", a:["Mậu Thân 1968","Điện Biên Phủ trên không","Bình Giã","Ấp Bắc"], c:1},
+    {level:2, q:"Kinh đô của nước Âu Lạc dưới thời An Dương Vương đặt ở đâu?", a:["Mê Linh","Cổ Loa","Phong Châu","Hoa Lư"], c:1},
+    {level:2, q:"Vị tướng nào của Việt Nam được mệnh danh là 'Hổ xám đường số 4'?", a:["Đặng Văn Việt","Hoàng Văn Thái","Văn Tiến Dũng","Chu Huy Mân"], c:0},
+    {level:2, q:"Đại chiến Xích Bích là cuộc đối đầu giữa liên minh Lưu Bị - Tôn Quyền với ai?", a:["Đổng Trác","Viên Thiệu","Tào Tháo","Lữ Bố"], c:2},
+    {level:2, q:"Hội nghị Diên Hồng thể hiện ý chí quyết tâm của tầng lớp nào?", a:["Tướng lĩnh","Binh sĩ","Các bậc phụ lão","Trí thức"], c:2},
+    {level:2, q:"Vị vua nào của nhà Nguyễn đã cho xây dựng Kinh thành Huế?", a:["Gia Long","Minh Mạng","Thiệu Trị","Tự Đức"], c:0},
+    {level:2, q:"Phong trào 'Cần Vương' nổ ra sau khi vua nào chạy ra khỏi kinh thành?", a:["Duy Tân","Hàm Nghi","Thành Thái","Bảo Đại"], c:1},
+    {level:2, q:"Thái sư Trần Thủ Độ có câu nói nổi tiếng: 'Đầu thần chưa rơi xuống đất, xin bệ hạ đừng lo', ông nói với ai?", a:["Trần Thái Tông","Trần Thánh Tông","Trần Nhân Tông","Trần Anh Tông"], c:0},
+    {level:2, q:"Chu Nguyên Chương là người sáng lập ra triều đại nào của Trung Quốc?", a:["Nhà Tống","Nhà Nguyên","Nhà Minh","Nhà Thanh"], c:2},
+    {level:2, q:"Quốc gia cổ nào ở miền Trung Việt Nam nổi tiếng với những tháp gạch?", a:["Phù Nam","Chămpa","Vạn Xuân","Lâm Ấp"], c:1},
+    {level:2, q:"Vị vua nào có công dẹp loạn 12 sứ quân, thống nhất đất nước?", a:["Ngô Quyền","Lê Hoàn","Đinh Bộ Lĩnh","Lý Bí"], c:2},
+    {level:2, q:"Thành cổ Quảng Trị là nơi diễn ra trận chiến bảo vệ thành cổ suốt bao nhiêu ngày đêm?", a:["50","61","81","100"], c:2},
+    {level:2, q:"Vị quan nào nhà Trần đã dâng 'Thất trảm sớ' đòi chém 7 nịnh thần?", a:["Chu Văn An","Trương Hán Siêu","Nguyễn Trung Ngạn","Phạm Sư Mạnh"], c:0},
+
+    // LEVEL 3: NÂNG CAO
+    {level:3, q:"Diode Tunnel hoạt động dựa trên hiệu ứng gì?", a: ["Hiệu ứng nhiệt điện", "Hiệu ứng quang điện", "Hiệu ứng xuyên hầm", "Hiệu ứng Hall"], c: 2},
+    {level:3, q:"Sông nào được mệnh danh là 'Mẹ của các con sông' ở Đông Nam Á?", a:["Sông Hồng","Sông Mê Kông","Sông Đồng Nai","Sông Chao Phraya"], c:1},
+    {level:3, q:"Tế bào nhân thực khác tế bào nhân sơ ở điểm nào?", a:["Có màng tế bào","Có tế bào chất","Có nhân hoàn chỉnh","Có ADN"], c:2},
+    {level:3, q:"Giai đoạn lịch sử 'Phục Hưng' bắt đầu từ nước nào?", a:["Pháp","Ý","Anh","Đức"], c:1},
+    {level:3, q:"Trong âm nhạc, nốt nhạc 'La' có tần số tiêu chuẩn là bao nhiêu Hz?", a:["400","440","480","520"], c:1},
+    {level:3, q:"Loại đường nào có trong sữa?", a:["Glucose","Fructose","Lactose","Sucrose"], c:2},
+    {level:3, q:"Tác giả cuốn 'Sapiens: Lược sử loài người' là ai?", a:["Bill Gates","Yuval Noah Harari","Steve Jobs","Barack Obama"], c:1},
+    {level:3, q:"Ngôn ngữ lập trình nào phổ biến nhất cho AI?", a:["Java","C++","Python","PHP"], c:2},
+    {level:3, q:"Ai là nữ thủ tướng đầu tiên của Vương quốc Anh?", a:["Theresa May","Margaret Thatcher","Angela Merkel","Queen Elizabeth II"], c:1},
+    {level:3, q:"Bản hiến pháp đầu tiên của Việt Nam được thông qua năm nào?", a:["1945","1946","1959","1980"], c:1},
+    {level:3, q:"Tên gọi cũ của Sài Gòn trước năm 1859 là gì?", a:["Gia Định","Tây Đô","Đà Nẵng","Định Tường"], c:0},
+    {level:3, q:"Hành tinh nào có hệ thống vành đai rõ rệt nhất?", a:["Mộc tinh","Thổ tinh","Thiên Vương tinh","Hải Vương tinh"], c:1},
+    {level:3, q:"Giải thưởng Nobel không trao cho lĩnh vực nào?", a:["Vật lý","Y học","Toán học","Kinh tế"], c:2},
+    {level:3, q:"Ký hiệu hóa học của nguyên tố Vonfram?", a:["V","W","Fe","Tg"], c:1},
+    {level:3, q:"Lỗ đen (Black hole) được dự đoán bởi lý thuyết nào?", a:["Cơ học cổ điển","Thuyết tương đối tổng quát","Thuyết vạn vật","Động lực học chất lỏng"], c:1},
+    {level:3, q:"Đơn vị đo độ phóng xạ trong hệ SI là?", a:["Curie","Becquerel","Roentgen","Sievert"], c:1},
+    {level:3, q:"Triết gia nào nổi tiếng với câu nói 'Tôi tư duy, nên tôi tồn tại'?", a:["Plato","Socrates","René Descartes","Kant"], c:2},
+    {level:3, q:"Múi giờ quốc tế (GMT) lấy gốc từ thành phố nào?", a:["New York","Berlin","Greenwich (London)","Tokyo"], c:2},
+    {level:3, q:"Ai là người đầu tiên đo chính xác vận tốc ánh sáng bằng thực nghiệm?", a:["Albert Michelson","Ole Rømer","James Maxwell","Fizeau"], c:1},
+    {level:3, q:"Thành phố cổ Petra (di sản thế giới) nằm ở quốc gia nào?", a:["Ai Cập","Thổ Nhĩ Kỳ","Jordan","Iran"], c:2},
+    {level:3, q:"Trong hóa học, kim loại kiềm thổ thuộc nhóm mấy?", a:["IA","IIA","IIIA","IVA"], c:1},
+    {level:3, q:"Hằng số Avogadro có giá trị xấp xỉ là bao nhiêu?", a:["6.022x10^22","6.022x10^23","6.626x10^34","1.38x10^23"], c:1},
+    {level:3, q:"Tác phẩm văn học nào được coi là tiểu thuyết hiện đại đầu tiên của thế giới?", a:["Hamlet","Don Quixote","Iliad","Faust"], c:1},
+    {level:3, q:"Nguyên lý bất định là đóng góp vĩ đại của nhà vật lý nào?", a:["Erwin Schrödinger","Werner Heisenberg","Niels Bohr","Max Planck"], c:1},
+    {level:3, q:"Nhân vật lịch sử nào được gọi là 'Đại đế' đã thống nhất các thành bang Hy Lạp?", a:["Julius Caesar","Alexander","Pericles","Leonidas"], c:1},
+    {level:3, q:"Quốc gia nào có số lượng múi giờ nhiều nhất thế giới?", a:["Nga","Mỹ","Pháp","Trung Quốc"], c:2},
+    {level:3, q:"Hệ thống chữ viết cổ nhất của người Sumer được gọi là gì?", a:["Chữ tượng hình","Chữ Tiết hình","Chữ Phạn","Chữ Phoenicia"], c:1},
+    {level:3, q:"Trong sinh học, 'Ty thể' đóng vai trò gì cho tế bào?", a:["Lưu trữ gen","Tổng hợp protein","Trạm năng lượng","Tiêu hóa"], c:2},
+    {level:3, q:"Đơn vị đo độ nhớt của chất lỏng là gì?", a:["Pascal","Poise","Stokes","Henry"], c:1},
+    {level:3, q:"Bức tường Berlin sụp đổ vào năm nào?", a:["1987","1988","1989","1990"], c:2},
+    {level:3, q:"Khoảng cách trung bình từ Trái Đất đến Mặt Trăng là bao nhiêu?", a:["320.000 km","384.400 km","405.000 km","150 triệu km"], c:1},
+    {level:3, q:"Hợp chất hóa học gây ra mùi của trứng thối là gì?", a:["NH3","SO2","H2S","CH4"], c:2},
+    {level:3, q:"Loài thực vật nào đầu tiên được trồng trong không gian?", a:["Cà chua","Khoai tây","Lúa mì","Hoa hướng dương"], c:1},
+    {level:3, q:"Giai điệu của bản quốc ca 'Tiến quân ca' được sáng tác vào năm nào?", a:["1944","1945","1946","1954"], c:0},
+    {level:3, q:"Vùng nào trên cơ thể người chứa nhiều dây thần kinh xúc giác nhất?", a:["Lòng bàn chân","Đầu ngón tay","Môi","Lưng"], c:1},
+    {level:3, q:"Kênh đào Panama nối liền hai đại dương nào?", a:["Thái Bình Dương - Ấn Độ Dương","Thái Bình Dương - Đại Tây Dương","Đại Tây Dương - Ấn Độ Dương","Bắc Băng Dương - Thái Bình Dương"], c:1},
+    {level:3, q:"Ngôn ngữ nào là tổ tiên của các ngôn ngữ Bắc Âu như Thụy Điển, Na Uy?", a:["Tiếng Latin","Tiếng Norse cổ","Tiếng Celtic","Tiếng Phạn"], c:1},
+    {level:3, q:"Ai là người phát minh ra bảng mã ASCII?", a:["Alan Turing","Robert Bemer","Bill Gates","Steve Jobs"], c:1},
+    {level:3, q:"Hợp kim của đồng và kẽm được gọi là gì?", a:["Đồng thiếc","Đồng thau","Thép nhịp","Inox"], c:1},
+    {level:3, q:"Nhà bác học nào là người đầu tiên sử dụng kính thiên văn để quan sát bầu trời?", a:["Kepler","Galileo","Copernicus","Brahe"], c:1},
+    {level:3, q:"Hội nghị Yalta (1945) bàn về vấn đề gì?", a:["Ký hòa ước hòa bình","Phân chia phạm vi ảnh hưởng sau chiến tranh","Thành lập NATO","Thành lập ASEAN"], c:1},
+    {level:3, q:"Lỗ đen được mô tả lần đầu bởi nhà vật lý nào qua toán học?", a:["Einstein","Karl Schwarzschild","Stephen Hawking","John Wheeler"], c:1},
+    {level:3, q:"Loài cá mập nào lớn nhất thế giới hiện nay?", a:["Cá mập trắng","Cá mập voi","Cá mập búa","Cá mập bò"], c:1},
+    {level:3, q:"Bộ luật thành văn đầu tiên của Việt Nam có tên là gì?", a:["Luật Hồng Đức","Luật Gia Long","Hình thư","Quốc triều hình luật"], c:2},
+    {level:3, q:"Quần thể di tích Cố đô Huế được UNESCO công nhận là Di sản Thế giới vào năm nào?", a:["1990","1993","1995","1999"], c:1},
+    {level:3, q:"Cuộc 'Biến pháp Thương Ưởng' giúp nước nào mạnh lên thời Chiến Quốc?", a:["Nước Sở","Nước Tần","Nước Triệu","Nước Tề"], c:1},
+    {level:3, q:"Trung Quốc chuyển từ chế độ phong kiến sang cộng hòa vào năm nào?", a:["1911","1945","1949","1921"], c:0},
+    {level:3, q:"Triều đại nào ở Trung Quốc nổi tiếng với con đường tơ lụa phát triển rực rỡ?", a:["Nhà Chu","Nhà Hán","Nhà Tùy","Nhà Thanh"], c:1},
+    {level:3, q:"Thành phố nào từng là kinh đô của nhiều triều đại Trung Quốc nhất?", a:["Bắc Kinh","Lạc Dương","Trường An (Tây An)","Nam Kinh"], c:2},
+    {level:3, q:"Trận 'Phì Thủy' là cuộc đối đầu nổi tiếng giữa hai phe nào ở Trung Quốc?", a:["Thục - Ngụy","Tiền Tần - Đông Tấn","Hán - Sở","Tùy - Đường"], c:1},
+    {level:3, q:"Ai là người soạn thảo 'Chiếu dời đô'?", a:["Lý Công Uẩn","Lý Đạo Thành","Tô Hiến Thành","Lý Thường Kiệt"], c:0},
+    {level:3, q:"Triều đại nào ở Việt Nam thực hiện chính sách 'Ngụ binh ư nông' đầu tiên?", a:["Nhà Đinh","Nhà Tiền Lê","Nhà Lý","Nhà Trần"], c:1},
+    {level:3, q:"Hoàng đế nào nhà Thanh đã có công mở mang bờ cõi Trung Quốc rộng lớn nhất?", a:["Khang Hy","Ung Chính","Càn Long","Gia Khánh"], c:2},
+    {level:3, q:"Tác phẩm 'Hồng Đức bản đồ' được thực hiện dưới thời vua nào?", a:["Lê Thái Tổ","Lê Thánh Tông","Lê Nhân Tông","Lê Hiến Tông"], c:1},
+    {level:3, q:"Nhân vật lịch sử nào của Trung Quốc được mệnh danh là 'Người khởi đầu cho sự thăng hoa của Nho giáo'?", a:["Mạnh Tử","Tuân Tử","Đổng Trọng Thư","Chu Hy"], c:2},
+    {level:3, q:"'Chính biến Huyền Vũ Môn' đưa ai lên ngôi hoàng đế nhà Đường?", a:["Đường Cao Tổ","Đường Thái Tông","Đường Cao Tông","Đường Huyền Tông"], c:1},
+    {level:3, q:"Việt Nam chính thức đổi tên thành 'Việt Nam' dưới thời vua nào?", a:["Gia Long","Minh Mạng","Thiệu Trị","Tự Đức"], c:0},
+    {level:3, q:"Hoàng hậu cuối cùng của triều đại phong kiến Việt Nam là ai?", a:["Nam Phương Hoàng hậu","Từ Dụ Thái hậu","Lê Ngọc Hân","Tống Thị Lan"], c:0},
+    {level:3, q:"Tướng quân Trần Khát Chân nổi tiếng với chiến công tiêu diệt vị vua nào của Chămpa?", a:["Chế Bồng Nga","Trà Toàn","Bàn La Trà Toàn","Băng Vương"], c:0},
+    {level:3, q:"Cuộc khởi nghĩa của Phan Đình Phùng gắn liền với vùng núi nào?", a:["Yên Thế","Hương Khê","Ba Đình","Bãi Sậy"], c:1},
+    {level:3, q:"Trong lịch sử Trung Quốc, ai là người sáng lập ra Đạo giáo?", a:["Khổng Tử","Lão Tử","Trang Tử","Mặc Tử"], c:1},
+    {level:3, q:"Trận 'Vạn Kiếp' là căn cứ chiến đấu quan trọng của vị tướng nào?", a:["Trần Quang Khải","Trần Hưng Đạo","Trần Nhật Duật","Trần Khánh Dư"], c:1},
+    {level:3, q:"Vương triều nào ở Trung Quốc đã cho xây dựng Tử Cấm Thành ở Bắc Kinh?", a:["Nhà Nguyên","Nhà Minh","Nhà Thanh","Nhà Tống"], c:1},
+    {level:3, q:"Vị vua nào của Việt Nam được sử sách ghi nhận là người đầu tiên tổ chức thi Đình?", a:["Lý Nhân Tông","Trần Thái Tông","Lê Thánh Tông","Trần Thánh Tông"], c:1},
+    {level:3, q:"Chiến dịch Biên giới Thu Đông 1950 nhằm mục đích gì chủ yếu?", a:["Giải phóng Hà Nội","Khai thông đường sang Trung Quốc","Tiêu diệt tập đoàn cứ điểm","Phá thế bao vòng"], c:1},
+    {level:3, q:"Quần đảo Hoàng Sa bị quân đội Trung Quốc chiếm đóng toàn bộ từ năm nào?", a:["1954","1974","1988","1979"], c:1},
+    {level:3, q:"Cuộc cách mạng Văn hóa ở Trung Quốc kéo dài trong bao nhiêu năm?", a:["5","10","15","20"], c:1},
+    {level:3, q:"Tên gọi 'Thăng Long' chính thức bị đổi thành 'Hà Nội' vào năm nào?", a:["1802","1831","1888","1945"], c:1},
+    {level:3, q:"Trận thủy chiến 'Vạn Tường' là chiến dịch quân sự lớn đầu tiên của Mỹ tại Việt Nam vào năm nào?", a:["1963","1964","1965","1966"], c:2},
+    {level:3, q:"Trong trận Bạch Đằng năm 938, Ngô Quyền đã đánh bại tướng nào của quân Nam Hán?", a:["Hoằng Tháo","Lưu Nghiễm","Quách Tiến","Lưu Bảo"], c:0},
+    {level:3, q:"Triều đại phong kiến nào ở Việt Nam có thời gian tồn tại ngắn nhất (7 năm)?", a:["Nhà Hồ","Nhà Tiền Lê","Nhà Mạc","Nhà Tây Sơn"], c:0},
+    {level:3, q:"Vị tổng thống nào đã ký Bản Tuyên ngôn Giải phóng nô lệ tại Mỹ?", a:["George Washington","Abraham Lincoln","Thomas Jefferson","Andrew Jackson"], c:1},
+    {level:3, q:"Sự kiện nào dẫn đến việc Mỹ chính thức tham gia Thế chiến thứ hai?", a:["Trận Midway","Trận Trân Châu Cảng","Cuộc đổ bộ D-Day","Vụ ném bom nguyên tử"], c:1},
+    {level:3, q:"Người phụ nữ nổi tiếng với việc từ chối nhường ghế trên xe buýt, khởi đầu phong trào dân quyền Mỹ là ai?", a:["Rosa Parks","Harriet Tubman","Eleanor Roosevelt","Susan B. Anthony"], c:0},
+    {level:3, q:"Mỹ mua lại bang Alaska từ quốc gia nào vào năm 1867?", a:["Anh","Pháp","Nga","Tây Ban Nha"], c:2},
+    {level:3, q:"Vị tổng thống duy nhất trong lịch sử Mỹ đắc cử 4 nhiệm kỳ liên tiếp là ai?", a:["Theodore Roosevelt","Franklin D. Roosevelt","Harry Truman","Dwight Eisenhower"], c:1},
+    {level:3, q:"Cuộc khủng hoảng tên lửa hạt nhân năm 1962 suýt dẫn đến chiến tranh giữa Mỹ và Liên Xô xảy ra tại đâu?", a:["Việt Nam","Triều Tiên","Cuba","Berlin"], c:2},
+    {level:3, q:"Bản Tuyên ngôn Độc lập của Mỹ được ký kết vào năm nào?", a:["1774","1775","1776","1783"], c:2},
+    {level:3, q:"Tiểu bang nào được coi là bang cuối cùng (thứ 50) gia nhập Hợp chủng quốc Hoa Kỳ?", a:["Alaska","Hawaii","Texas","Florida"], c:1},
+    {level:3, q:"Tác giả chính của Bản Tuyên ngôn Độc lập Mỹ là ai?", a:["Benjamin Franklin","John Adams","Thomas Jefferson","James Madison"], c:2},
+    {level:3, q:"Phong trào 'Đường mòn nước mắt' (Trail of Tears) liên quan đến sự di dời của đối tượng nào?", a:["Nô lệ da đen","Người Do Thái","Người bản địa Mỹ","Người nhập cư Ý"], c:2},
+    {level:3, q:"Hệ thống đẳng cấp 'Caste' nổi tiếng gắn liền với lịch sử quốc gia nào?", a:["Ai Cập","Ấn Độ","Hy Lạp","La Mã"], c:1},
+    {level:3, q:"Phát xít Đức tấn công quốc gia nào mở đầu cho Thế chiến thứ hai?", a:["Pháp","Anh","Ba Lan","Tiệp Khắc"], c:2},
+    {level:3, q:"Ai là người dẫn đầu đoàn thám hiểm đầu tiên đi vòng quanh thế giới (dù ông tử trận giữa chừng)?", a:["Columbus","Magellan","Vasco da Gama","Marco Polo"], c:1},
+    {level:3, q:"Vị hoàng đế nào của Pháp đã bị lưu đày đến đảo Saint Helena cho đến khi qua đời?", a:["Louis XIV","Napoleon Bonaparte","Charlemagne","Louis XVI"], c:1},
+    {level:3, q:"Đế quốc nào được mệnh danh là 'Đế quốc mặt trời không bao giờ lặn'?", a:["Đế quốc Mông Cổ","Đế quốc La Mã","Đế quốc Anh","Đế quốc Tây Ban Nha"], c:2},
+    {level:3, q:"Tổ chức Liên Hợp Quốc chính thức được thành lập vào năm nào?", a:["1919","1944","1945","1948"], c:2},
+    {level:3, q:"Người phụ nữ đầu tiên bay vào vũ trụ là người nước nào?", a:["Mỹ","Nga (Liên Xô)","Pháp","Trung Quốc"], c:1},
+    {level:3, q:"Hệ thống phân biệt chủng tộc Apartheid diễn ra tại quốc gia nào?", a:["Kenya","Nigeria","Nam Phi","Ai Cập"], c:2},
+    {level:3, q:"Thời kỳ 'Phục hưng' đạt đỉnh cao rực rỡ nhất tại thành phố nào của Ý?", a:["Rome","Venice","Florence","Milan"], c:2},
+
+    // LEVEL 4: CHUYÊN SÂU / KHÓ
+    {level:4, q:"Ai là người đầu tiên đo được chu vi Trái Đất?", a:["Ptolemy","Aristotle","Eratosthenes","Galileo"], c:2},
+    {level:4, q:"Trong vật lý lượng tử, hạt nào mang lực điện từ?", a:["Gluon","Photon","W boson","Z boson"], c:1},
+    {level:4, q:"Axit Deoxyribonucleic là tên đầy đủ của?", a:["ARN","ATP","ADN","ADP"], c:2},
+    {level:4, q:"Nguyên tố hiếm nhất trên vỏ Trái Đất là?", a:["Astatine","Francium","Radium","Uranium"], c:0},
+    {level:4, q:"Cấu trúc của ADN được công bố bởi Watson và Crick vào năm nào?", a:["1943","1953","1963","1973"], c:1},
+    {level:4, q:"Thành phố cổ Pompeii bị phá hủy bởi núi lửa nào?", a:["Etna","Vesuvius","Krakatoa","Fuji"], c:1},
+    {level:4, q:"Ai là người chứng minh được Định lý lớn Fermat?", a:["Isaac Newton","Andrew Wiles","Leonhard Euler","Alan Turing"], c:1},
+    {level:4, q:"Bức tranh 'Guernica' nổi tiếng của họa sĩ nào?", a:["Salvador Dali","Pablo Picasso","Vincent van Gogh","Henri Matisse"], c:1},
+    {level:4, q:"Tên gọi của loại vi khuẩn có khả năng sống ở môi trường cực đoan?", a:["Extremophiles","Pathogens","Probiotics","Parasites"], c:0},
+    {level:4, q:"Trong kinh tế học, GDP là viết tắt của?", a:["Gross Domestic Product","Global Development Process","General Data Protection","Government Debt Profit"], c:0},
+    {level:4, q:"Bản giao hưởng số 9 'Ode to Joy' là của ai?", a:["Mozart","Bach","Beethoven","Chopin"], c:2},
+    {level:4, q:"Đế quốc nào từng có diện tích liên tục lớn nhất lịch sử?", a:["Đế quốc Anh","Đế quốc Mông Cổ","Đế quốc La Mã","Liên bang Xô Viết"], c:1},
+    {level:4, q:"Ngôn ngữ nào là tiền thân của các ngôn ngữ Romance?", a:["Tiếng Hy Lạp","Tiếng Latin","Tiếng Phạn","Tiếng Đức"], c:1},
+    {level:4, q:"Quá trình phân bào tạo ra giao tử gọi là?", a:["Nguyên phân","Giảm phân","Trực phân","Thụ tinh"], c:1},
+    {level:4, q:"Ai là người phát minh ra bảng tuần hoàn các nguyên tố hóa học?", a:["Dalton","Mendeleev","Rutherford","Bohr"], c:1},
+    {level:4, q:"Nhà toán học nào đã giải quyết được 'Giả thuyết Poincaré'?", a:["Andrew Wiles","Grigori Perelman","Terence Tao","John Nash"], c:1},
+    {level:4, q:"Nguyên tố hóa học nào được đặt theo tên của thủ đô nước Thụy Điển?", a:["Stockholmium","Holmium","Lutetium","Hafnium"], c:1},
+    {level:4, q:"Trận chiến hải quân quy mô lớn nhất trong lịch sử thế giới (tính theo số tàu)?", a:["Trận Midway","Trận Jutland","Trận Vịnh Leyte","Trận Salamis"], c:2},
+    {level:4, q:"Ai là người đã chứng minh được 'Định lý bất toàn' trong toán học?", a:["David Hilbert","Kurt Gödel","Bertrand Russell","Alan Turing"], c:1},
+    {level:4, q:"Trong kinh tế, 'Đường cong Laffer' thể hiện mối quan hệ giữa?", a:["Lạm phát và Thất nghiệp","Thuế suất và Tổng thu ngân sách","Cung và Cầu","Tiết kiệm và Đầu tư"], c:1},
+    {level:4, q:"Hạt boson nào chịu trách nhiệm cho việc tạo ra khối lượng của các hạt cơ bản?", a:["Gluon","Photon","Higgs","W Boson"], c:2},
+    {level:4, q:"Tác giả của tác phẩm kinh điển 'Nguồn gốc các loài' đã dành bao nhiêu năm để nghiên cứu trước khi xuất bản?", a:["10 năm","15 năm","20 năm","30 năm"], c:2},
+    {level:4, q:"Tỉnh nào của Việt Nam có đường biên giới với cả Lào và Campuchia?", a:["Gia Lai","Kon Tum","Đắk Lắk","Bình Phước"], c:1},
+    {level:4, q:"Phân tử ADN có cấu trúc xoắn kép được gọi là cấu trúc gì?", a:["B-DNA","Z-DNA","A-DNA","C-DNA"], c:0},
+    {level:4, q:"Thành phố nào là thủ đô đầu tiên của Đế chế La Mã Thần thánh?", a:["Rome","Vienna","Aachen","Prague"], c:2},
+    {level:4, q:"Dãy số Fibonacci tiến dần về tỷ lệ nào khi các số càng lớn?", a:["Tỷ lệ vàng (Phi)","Số Pi","Số e","Căn bậc hai của 2"], c:0},
+    {level:4, q:"Nhà triết học nào đã viết cuốn 'Cộng hòa' (The Republic)?", a:["Aristotle","Socrates","Plato","Epicurus"], c:2},
+    {level:4, q:"Quốc gia nào có tên gọi nghĩa là 'Vùng đất của những người tự do'?", a:["Thái Lan","Ethiopia","Liberia","Thụy Sĩ"], c:0},
+    {level:4, q:"Loại hạt nào nặng hơn proton?", a:["Electron","Neutron","Positron","Neutrino"], c:1},
+    {level:4, q:"Hợp chất hữu cơ phức tạp nhất được tìm thấy tự nhiên trong cơ thể người là gì?", a:["Hemoglobin","ADN","Titin (Protein)","Insulin"], c:2},
+    {level:4, q:"Ai là người phụ nữ duy nhất giành được hai giải Nobel ở hai lĩnh vực khoa học khác nhau?", a:["Ada Lovelace","Marie Curie","Rosalind Franklin","Dorothy Hodgkin"], c:1},
+    {level:4, q:"Sự kiện 'Sự cố kênh đào Suez' xảy ra vào năm nào?", a:["1948","1954","1956","1967"], c:2},
+    {level:4, q:"Đơn vị đo lượng phóng xạ hấp thụ bởi mô sống là?", a:["Becquerel","Curie","Sievert","Gray"], c:2},
+    {level:4, q:"Vị vua cuối cùng của triều đại nhà Mạc trong lịch sử Việt Nam là ai?", a:["Mạc Kính Vũ","Mạc Đăng Doanh","Mạc Mậu Hợp","Mạc Toàn"], c:0},
+    {level:4, q:"Hành tinh nào có số lượng vệ tinh tự nhiên nhiều nhất tính đến năm 2023?", a:["Mộc tinh","Thổ tinh","Thiên Vương tinh","Hải Vương tinh"], c:1},
+    {level:4, q:"Ngôn ngữ nào có bảng chữ cái nhiều ký tự nhất thế giới?", a:["Tiếng Khmer","Tiếng Hindi","Tiếng Nga","Tiếng Thái"], c:0},
+    {level:4, q:"Ai là kiến trúc sư thiết kế Kim tự tháp kính tại bảo tàng Louvre (Pháp)?", a:["Le Corbusier","I.M. Pei","Frank Gehry","Zaha Hadid"], c:1},
+    {level:4, q:"Nguyên tố thứ 100 theo thứ tự trong bảng tuần hoàn hóa học là?", a:["Fermium(Fm)", "Cerium(Cs)", "Mendelevium(Md)", "Nobelium(No)"], c:0},
+    {level:4, q:"Sự kiện 'Huyền Trân Công chúa' về làm dâu Chămpa giúp nước ta mở rộng vùng đất nào?", a:["Thanh Hóa - Nghệ An","Thuận Hóa - Quảng Nam","Châu Ô - Châu Lý","Khánh Hòa"], c:2},
+    {level:4, q:"Vị vua nào của nhà Trần có tên húy là Trần Cảnh?", a:["Trần Thái Tông","Trần Thánh Tông","Trần Nhân Tông","Trần Anh Tông"], c:0},
+    {level:4, q:"Vị vua nào của Việt Nam chỉ ở ngôi được vỏn vẹn 3 ngày?", a:["Dục Đức","Hiệp Hòa","Kiến Phúc","Hàm Nghi"], c:0},
+    {level:4, q:"Theo sử liệu, người thực sự chỉ huy quân đội nhà Thanh xâm lược nước ta năm 1789 là ai?", a:["Tôn Sĩ Nghị","Sầm Nghi Đống","Ô Đại Kinh","Hứa Thế Hanh"], c:0},
+    {level:4, q:"Hoàng đế Càn Long của nhà Thanh có tên thật là gì?", a:["Ái Tân Giác La Hoằng Lịch","Ái Tân Giác La Huyền Diệp","Ái Tân Giác La Dận Chân","Ái Tân Giác La Vĩnh Diễm"], c:0},
+    {level:4, q:"Vụ án 'Khối u ở nách' liên quan đến cái chết đầy bí ẩn của vị vua nào nhà Trần?", a:["Trần Thánh Tông","Trần Hiến Tông","Trần Dụ Tông","Trần Nghệ Tông"], c:1},
+    {level:4, q:"Vị vua nào là người cuối cùng của nhà Tiền Lê?", a:["Lê Long Đĩnh","Lê Long Việt","Lê Hoàn","Lê Trung Tông"], c:0},
+    {level:4, q:"Trận 'Chi lăng - Xương Giang' tiêu diệt viện binh nhà Minh do tướng nào chỉ huy?", a:["Liễu Thăng","Thoát Hoan","Trương Phụ","Mộc Thạnh"], c:0},
+    {level:4, q:"Vua Minh Mạng có bao nhiêu người con (tổng cộng)?", a:["102","122","142","162"], c:2},
+    {level:4, q:"Tác giả bộ sử 'Đại Việt sử ký' (bộ sử đầu tiên của nước ta) là ai?", a:["Lê Văn Hưu","Phan Phu Tiên","Ngô Sĩ Liên","Lê Quý Đôn"], c:0},
+    {level:4, q:"Cuộc khởi nghĩa của Lý Bí (Lý Nam Đế) chống lại triều đại nào của Trung Quốc?", a:["Nhà Lương","Nhà Tùy","Nhà Đường","Nhà Tấn"], c:0},
+    {level:4, q:"Trận 'Ngọc Hồi' diễn ra vào rạng sáng ngày mùng mấy Tết Kỷ Dậu?", a:["Mùng 3","Mùng 4","Mùng 5","Mùng 6"], c:2},
+    {level:4, q:"Cấu trúc hành chính 'Tỉnh' của Việt Nam hiện nay bắt đầu có từ cuộc cải cách của vua nào?", a:["Gia Long","Minh Mạng","Thiệu Trị","Tự Đức"], c:1},
+    {level:4, q:"Năm 1920, tại Đại hội Tua (Pháp), Nguyễn Ái Quốc đã bỏ phiếu tán thành gia nhập tổ chức nào?", a:["Quốc tế thứ nhất","Quốc tế thứ hai","Quốc tế thứ ba","Liên hợp quốc"], c:2},
+    {level:4, q:"Tướng quân Lê Trọng Tấn trong chiến dịch Hồ Chí Minh đã chỉ huy cánh quân nào tiến vào Sài Gòn?", a:["Cánh quân phía Đông","Cánh quân phía Tây","Cánh quân phía Bắc","Cánh quân phía Nam"], c:0},
+    {level:4, q:"Vị vua nào của nhà Tống đã ra lệnh cho Quách Quỳ xâm lược Đại Việt năm 1077?", a:["Tống Thần Tông","Tống Huy Tông","Tống Thái Tổ","Tống Nhân Tông"], c:0},
+    {level:4, q:"Thành phố nào của Trung Quốc là nơi ký kết hiệp ước bất bình đẳng đầu tiên với thực dân Anh?", a:["Bắc Kinh","Quảng Châu","Nam Kinh","Hồng Kông"], c:2},
+    {level:4, q:"Ai là vị Tổng thống Mỹ đầu tiên sinh ra sau khi Mỹ tuyên bố độc lập?", a:["Martin Van Buren","John Tyler","James Polk","Andrew Jackson"], c:0},
+    {level:4, q:"Sự kiện 'Boston Tea Party' (Tiệc trà Boston) diễn ra nhằm phản đối đạo luật nào của Anh?", a:["Đạo luật Tem thuế","Đạo luật Trà","Đạo luật Đường","Đạo luật Nhà ở"], c:1},
+    {level:4, q:"Vị tổng thống Mỹ duy nhất từng từ chức trước khi hết nhiệm kỳ là ai?", a:["Bill Clinton","Andrew Johnson","Richard Nixon","Herbert Hoover"], c:2},
+    {level:4, q:"Người lính đầu tiên tử trận trong cuộc Cách mạng Mỹ (Sự kiện Thảm sát Boston) là ai?", a:["Crispus Attucks","Paul Revere","Samuel Adams","Nathan Hale"], c:0},
+    {level:4, q:"Kế hoạch Marshall sau Thế chiến II được đặt theo tên của George Marshall, lúc đó ông giữ chức vụ gì?", a:["Tổng thống","Bộ trưởng Ngoại giao","Bộ trưởng Quốc phòng","Phó Tổng thống"], c:1},
+    {level:4, q:"Trước khi đổi tên thành New York, thành phố này được người Hà Lan gọi là gì?", a:["New Amsterdam","New Holland","New Utrecht","New Rotterdam"], c:0},
+    {level:4, q:"Người phụ nữ đầu tiên nắm giữ chức vụ Chủ tịch Hạ viện Mỹ là ai?", a:["Hillary Clinton","Nancy Pelosi","Condoleezza Rice","Kamala Harris"], c:1},
+    {level:4, q:"Đạo luật nào năm 1862 cho phép người dân Mỹ nhận 160 mẫu đất công miễn phí nếu họ canh tác?", a:["Đạo luật Homestead","Đạo luật Dawes","Đạo luật Sherman","Đạo luật Morrill"], c:0},
+    {level:4, q:"Tên gọi của chiếc tàu chở những người hành hương đầu tiên đến Mỹ năm 1620 là gì?", a:["Santa Maria","Mayflower","Beagle","Endeavour"], c:1},
+    {level:4, q:"Trận thủy chiến Salamis (480 TCN) là cuộc đối đầu giữa liên minh Hy Lạp và đế quốc nào?", a:["Ba Tư","Mông Cổ","La Mã","Carthage"], c:0},
+    {level:4, q:"Ai là người sáng lập ra Vương triều Mughal tại Ấn Độ?", a:["Akbar","Babur","Shah Jahan","Aurangzeb"], c:1},
+    {level:4, q:"Hội nghị Berlin (1884-1885) được tổ chức nhằm mục đích gì?", a:["Phân chia Châu Á","Phân chia Châu Phi","Thành lập khối Đồng minh","Kết thúc chiến tranh Napoléon"], c:1},
+    {level:4, q:"Tên gọi của cuộc cải cách đưa Nhật Bản trở thành cường quốc hiện đại cuối thế kỷ 19 là gì?", a:["Minh Trị Duy Tân","Cách mạng Tân Hợi","Phong trào Ngũ Tứ","Phong trào Tự cường"], c:0},
+    {level:4, q:"Ai là người đã giải mã được chữ tượng hình Ai Cập thông qua phiến đá Rosetta?", a:["Howard Carter","Jean-François Champollion","Thomas Young","Lord Carnarvon"], c:1},
+    {level:4, q:"Cuộc chiến tranh Trăm Năm (Hundred Years' War) diễn ra giữa hai quốc gia nào?", a:["Anh và Pháp","Đức và Pháp","Anh và Tây Ban Nha","Ý và Áo"], c:0},
+    {level:4, q:"Đế quốc Byzantium thực chất là phần còn lại của đế quốc nào?", a:["Đế quốc Ottoman","Đế quốc La Mã phía Đông","Đế quốc Ba Tư","Đế quốc Hy Lạp"], c:1},
+    {level:4, q:"Tác giả của tác phẩm kinh điển 'Của cải của các dân tộc' (The Wealth of Nations) là ai?", a:["Karl Marx","Adam Smith","John Locke","David Ricardo"], c:1},
+    {level:4, q:"Hoàng đế nào là người đã ban hành bộ luật bằng văn bản đầu tiên của nhân loại?", a:["Julius Caesar","Hammurabi","Alexander Đại đế","Napoleon"], c:1}
+];
+
+let gameQuestions = [];   // 15 câu cho lượt chơi này
+let currentIndex = 0;    // đang ở câu số mấy (0 → 14)
+
+const prizeMoney = [0,200000,400000,600000,1000000,2000000,3000000,6000000,10000000,14000000,22000000,30000000,40000000,60000000,85000000,150000000];
+
+let idx=0, currentQ=null, locked=false;
+let activeAnswers = []; // đáp án còn hiệu lực (sau 50/50)
+let answerMap=[];
+
+/* ===== ELEMENTS ===== */
+const qBox=document.getElementById("questionBox");
+const aDiv=document.getElementById("answers");
+const moneyDiv=document.getElementById("money");
+const questionDiv=document.getElementById("question");
+const popup=document.getElementById("popup");
+const popupContent=document.getElementById("popupContent");
+
+/* ===== UTILS ===== */
+function shuffle(arr){
+ for(let i=arr.length-1;i>0;i--){
+  let j=Math.floor(Math.random()*(i+1));
+  [arr[i],arr[j]]=[arr[j],arr[i]];
+ }
+}
+
+function startGame(){
+    gameQuestions = [];
+    currentIndex = 0;
+
+    // chia câu hỏi theo level
+    let byLevel = {
+    1: QUESTIONS.filter(q=>q.level===1),
+    2: QUESTIONS.filter(q=>q.level===2),
+    3: QUESTIONS.filter(q=>q.level===3),
+    4: QUESTIONS.filter(q=>q.level===4)
+    };
+
+    // random từng level
+    shuffle(byLevel[1]);
+    shuffle(byLevel[2]);
+    shuffle(byLevel[3]);
+    shuffle(byLevel[4]);
+
+    // lấy số lượng theo yêu cầu
+    gameQuestions.push(
+    ...byLevel[1].slice(0,4),   // câu 1-4
+    ...byLevel[2].slice(0,4),   // câu 5-8
+    ...byLevel[3].slice(0,4),   // câu 9-12
+    ...byLevel[4].slice(0,3)    // câu 13-15
+    );
+
+    loadQuestion();
+}
+
+/* === MONEY === */
+function formatMoney(num){
+    return num.toLocaleString("vi-VN");
+}
+
+function updateMoney(){
+    moneyDiv.innerText =
+        "Số tiền hiện tại: " +
+        formatMoney(prizeMoney[currentIndex]) +
+        " ₫";
+}
+
+/* ===== LOAD ===== */
+function loadQuestion(){
+    locked = false;
+
+    currentQ = gameQuestions[currentIndex];
+
+    qBox.innerText = `${currentQ.q}`;
+
+    // reset đáp án
+    aDiv.innerHTML="";
+    answerMap = currentQ.a.map((t,i)=>({t, ok:i===currentQ.c}));
+    shuffle(answerMap);
+    activeAnswers = [...answerMap];
+
+    answerMap.forEach((o,i)=>{
+    let d=document.createElement("div");
+    d.className="answer";
+    d.innerHTML=`<span>${String.fromCharCode(65+i)}.</span> ${o.t}`;
+    d.onclick=()=>choose(d,o.ok);
+    aDiv.appendChild(d);
+    });
+
+    questionDiv.innerText = `Câu ${currentIndex+1}/15`;
+    moneyDiv.innerText =
+    "Số tiền hiện tại: " +
+    formatMoney(prizeMoney[currentIndex]) +
+    " ₫";
+
+}
+
+function choose(div,ok){
+ if(locked) return;
+ locked = true;
+
+ const answers=[...document.querySelectorAll(".answer")];
+ const correctDiv=answers[answerMap.findIndex(x=>x.ok)];
+
+ correctDiv.classList.add("blink");
+ setTimeout(()=>{
+  correctDiv.classList.remove("blink");
+  correctDiv.classList.add("correct");
+ },1500);
+
+ if(!ok){
+  div.classList.add("wrong");
+  setTimeout(showRestart,2000);
+  return;
+ }
+
+ setTimeout(()=>{
+  currentIndex++;
+  updateMoney();
+
+  // chiến thắng
+  if(currentIndex === 15){
+   showPopup("🎉 CHIẾN THẮNG",
+    "Chúc mừng bạn đã trở thành <b> TRIỆU PHÚ</b> 🏆");
+   return;
+  }
+
+  loadQuestion();
+ },2200);
+}
+
+/* ===== LIFELINES ===== */
+function use5050(btn){
+    btn.classList.add("used");
+
+    let wrong = activeAnswers.filter(a=>!a.ok);
+    shuffle(wrong);
+
+    // loại 2 đáp án sai
+    wrong.slice(0,2).forEach(w=>{
+    activeAnswers = activeAnswers.filter(a=>a!==w);
+
+    [...aDiv.children].forEach(d=>{
+    if(d.innerText.includes(w.t)){
+        d.innerHTML = d.innerHTML.replace(w.t,"");
+        d.onclick = null;
+        d.style.cursor="default";
+    }
+    });
+    });
+}
+
+function callBro(btn){
+ btn.classList.add("used");
+
+ let level = currentQ.level;
+ let correct = activeAnswers.find(a=>a.ok);
+ let others = activeAnswers.filter(a=>!a.ok);
+ shuffle(others);
+
+ let text = "";
+
+ // LEVEL 1 & 2: chắc chắn đúng
+ if(level <= 2){
+  text = `
+   Câu này dễ mà 😎  
+   Anh học mấy cái này từ năm nhất rồi.  
+   Đáp án chắc chắn là <b>${correct.t}</b>.
+  `;
+ }
+
+ // LEVEL 3: phân vân – 50/50
+ else if(level === 3){
+  let isRight = Math.random() < 0.5;
+  let ans = isRight ? correct : others[0];
+
+  text = `
+   Câu này bắt đầu khoai rồi 🤔  
+   Anh không dám chắc lắm…  
+   Nhưng cảm giác của anh đang nghiêng về  
+   <b>${ans.t}</b>.
+  `;
+ }
+
+ // LEVEL 4: random biết / không biết
+ else{
+  let know = Math.random() < 0.5;
+
+  // biết → đúng
+  if(know){
+   text = `
+    À câu này thì anh biết 😏  
+    Ngày xưa từng gặp rồi.  
+    Không phải nghĩ nhiều, đáp án là  
+    <b>${correct.t}</b>.
+   `;
+  }
+  // không biết → hên xui
+  else{
+   let ans = activeAnswers[Math.floor(Math.random()*activeAnswers.length)];
+   text = `
+    😵‍💫 Thú thật với chú…  
+    Câu này anh cũng chịu.  
+    Nếu đoán thì anh đoán đại  
+    <b>${ans.t}</b>, hên xui thôi nha.
+   `;
+  }
+ }
+
+ showPopup("📞 Ông anh 96 BK", text);
+}
+
+
+function askAudience(btn){
+ btn.classList.add("used");
+
+ let data = answerMap.map((a,i)=>{
+  // nếu đã bị loại bởi 50/50 → 0%
+  if(!activeAnswers.includes(a)){
+   return {label:String.fromCharCode(65+i), p:0};
+  }
+
+  let p = a.ok
+    ? 55 + Math.random()*25
+    : 5 + Math.random()*15;
+
+  return {label:String.fromCharCode(65+i), p};
+ });
+
+ // chuẩn hóa về 100%
+ let sum = data.reduce((s,x)=>s+x.p,0);
+ data.forEach(d=>{
+  d.p = sum ? Math.round(d.p/sum*100) : 0;
+ });
+
+ let html = `
+ <b>Ý kiến khán giả trường quay</b>
+ <div class="chart" style="
+   display:flex;
+   justify-content:space-around;
+   align-items:flex-end;
+   margin-top:20px;
+   height:260px;
+ ">`;
+
+ data.forEach(d=>{
+  html+=`
+   <div style="
+     display:flex;
+     flex-direction:column;
+     align-items:center;
+     width:70px;
+   ">
+     <!-- % phía trên -->
+     <div style="
+       margin-bottom:6px;
+       font-weight:bold;
+       font-size:16px;
+       color:${d.p===0?'#888':'#ffd700'};
+     ">
+       ${d.p}%
+     </div>
+
+     <!-- cột -->
+     <div style="
+       height:${d.p*2}px;
+       width:42px;
+       background:${d.p===0
+         ? '#444'
+         : 'linear-gradient(to top,#1e90ff,#6fbfff)'};
+       border-radius:10px 10px 0 0;
+     "></div>
+
+     <!-- nhãn A B C D -->
+     <div style="margin-top:8px;font-weight:bold">
+       ${d.label}
+     </div>
+   </div>`;
+ });
+
+ html += "</div>";
+
+ showPopup("👥 Khán giả", html);
+}
+
+function askAI(btn){
+ btn.classList.add("used");
+
+ let level = currentQ.level;
+
+ // LEVEL 1 & 2: khẳng định chắc chắn
+ if(level <= 2){
+  let correct = activeAnswers.find(a=>a.ok);
+  showPopup("🤖 AI",
+   `
+   Dựa trên dữ liệu huấn luyện và phân tích ngữ nghĩa,  
+   AI xác định đáp án đúng là  
+   <b>${correct.t}</b>.
+   `
+  );
+  return;
+ }
+
+ // LEVEL 3 & 4: phân tích xác suất
+ let data = activeAnswers.map(a=>{
+  let p = a.ok
+    ? 65 + Math.random()*20   // ≈80% đúng
+    : 10 + Math.random()*15;
+  return {t:a.t, p};
+ });
+
+ let sum = data.reduce((s,x)=>s+x.p,0);
+ data.forEach(d=>d.p=Math.round(d.p/sum*100));
+
+ let best = [...data].sort((a,b)=>b.p-a.p)[0];
+
+ let html = `
+ <b>Phân tích xác suất của AI</b>
+ <table style="width:100%;margin-top:10px">
+ `;
+
+ data.forEach(d=>{
+  html+=`
+   <tr>
+     <td>${d.t}</td>
+     <td style="text-align:right;font-weight:bold">${d.p}%</td>
+   </tr>
+  `;
+ });
+
+ html += `
+ </table>
+ <p style="margin-top:10px">
+ Đáp án có xác suất cao nhất là  
+ <b>${best.t}</b>.  
+ Tuy nhiên, AI vẫn tồn tại sai số.
+ </p>
+ `;
+
+ showPopup("🤖 Hỏi AI", html);
+}
+
+/* ===== POPUP ===== */
+function showPopup(title,content){
+ popupContent.innerHTML = `
+   <h2 style="color:#ffd700;margin-top:0">${title}</h2>
+   <div style="margin:15px 0;font-size:16px">${content}</div>
+   <button class="popup-btn" onclick="popup.style.display='none'">
+     Đóng
+   </button>
+ `;
+ popup.style.display="flex";
+}
+
+function showRestart(){
+ showPopup("💥 KẾT THÚC",
+  `
+  Bạn đã dừng cuộc chơi tại câu ${currentIndex+1}.<br><br>
+  <button class="popup-btn" onclick="popup.style.display='none';startGame()">
+   Chơi lại
+  </button>
+  `
+ );
+}
+
+function closePopup(){
+ popup.style.display="none";
+ locked=false; // QUAN TRỌNG: cho chơi tiếp
+}
+
+/* ===== GAME OVER ===== */
+function gameOver(){
+ popupContent.innerHTML=`
+  <h2>BẠN ĐÃ THUA</h2>
+  <p>Tiền thưởng: ${money[idx]}k</p>
+  <button id="restart" onclick="location.reload()">Chơi lại</button>
+ `;
+ popup.style.display="flex";
+}
+
+startGame();
+
+</script>
+
+</body>
+</html>
