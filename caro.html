@@ -18,7 +18,7 @@ body{
 }
 
 input{
-    width:140px;
+    width:160px;
     padding:6px;
     font-size:16px;
     text-align:center;
@@ -49,19 +49,28 @@ button{
     height:36px;
     background:#222;
     border:1px solid #444;
-    font-size:20px;
+    font-size:22px;
     line-height:36px;
     cursor:pointer;
+    user-select:none;
 }
 
-.X{color:#ff5252;}
-.O{color:#4fc3f7;}
+.X{ color:#ff5252; }
+.O{ color:#4fc3f7; }
+
+/* ⭐ Highlight CHỮ vừa đánh */
+.last-text{
+    text-shadow:
+        0 0 6px currentColor,
+        0 0 12px currentColor,
+        0 0 18px currentColor;
+    font-weight:bold;
+}
 </style>
 </head>
 
 <body>
 
-<!-- ===== TOP BAR ===== -->
 <div id="topbar">
     Round: <b id="round">1</b> |
     Lượt: <b id="turn">X</b><br><br>
@@ -73,7 +82,6 @@ button{
     <div id="info">Nước vừa đánh: —</div>
 </div>
 
-<!-- ===== BOARD ===== -->
 <div id="board"></div>
 
 <script>
@@ -81,8 +89,8 @@ const SIZE = 15;
 const WIN = 5;
 
 let board = [];
-let currentPlayer = "X";
 let history = [];
+let currentPlayer = "X";
 let gameOver = false;
 let round = 1;
 
@@ -91,24 +99,23 @@ const turnSpan = document.getElementById("turn");
 const infoDiv = document.getElementById("info");
 const moveInput = document.getElementById("moveInput");
 
-// ===== INIT =====
+/* ===== INIT ===== */
 function init(){
     board = Array.from({length:SIZE},()=>Array(SIZE).fill(""));
-    boardDiv.innerHTML="";
-    history=[];
-    gameOver=false;
-    currentPlayer="X";
-    turnSpan.textContent="X";
-    infoDiv.textContent="Nước vừa đánh: —";
+    boardDiv.innerHTML = "";
+    history = [];
+    gameOver = false;
+    currentPlayer = "X";
+    turnSpan.textContent = "X";
+    infoDiv.textContent = "Nước vừa đánh: —";
 
     for(let r=0;r<SIZE;r++){
         for(let c=0;c<SIZE;c++){
-            const cell=document.createElement("div");
-            cell.className="cell";
+            const cell = document.createElement("div");
+            cell.className = "cell";
 
-            // ✅ CLICK CHUỘT
-            cell.onclick=()=> {
-                const code=(r+1)*100+(c+1);
+            cell.onclick = ()=>{
+                const code = (r+1)*100 + (c+1);
                 place(r,c,code);
             };
 
@@ -117,7 +124,7 @@ function init(){
     }
 }
 
-// ===== ENTER TO PLAY =====
+/* ===== ENTER INPUT ===== */
 moveInput.addEventListener("keydown",e=>{
     if(e.key==="Enter") playByInput();
 });
@@ -125,110 +132,102 @@ moveInput.addEventListener("keydown",e=>{
 function playByInput(){
     if(gameOver) return;
 
-    const value = moveInput.value.trim();
-    if(!/^\d+$/.test(value)){
-        alert("Nhập số XY hợp lệ!");
-        return;
-    }
+    const val = moveInput.value.trim();
+    if(!/^\d+$/.test(val)) return alert("Nhập XY dạng số!");
 
-    const num=parseInt(value);
-    const x=Math.floor(num/100);
-    const y=num%100;
+    const num = +val;
+    const x = Math.floor(num/100);
+    const y = num % 100;
 
-    if(x<1||x>15||y<1||y>15){
-        alert("Tọa độ ngoài bàn cờ!");
-        return;
-    }
+    if(x<1||x>15||y<1||y>15)
+        return alert("Ngoài bàn cờ!");
 
     place(x-1,y-1,num);
     moveInput.value="";
 }
 
-// ===== PLACE =====
+/* ===== PLACE ===== */
 function place(r,c,code){
-    if(gameOver) return;
-    if(board[r][c]!==""){
-        alert("Ô đã được đánh!");
-        return;
-    }
+    if(gameOver || board[r][c]!="") return;
 
-    const idx=r*SIZE+c;
-    const cell=boardDiv.children[idx];
+    // ❌ bỏ highlight chữ cũ
+    const old = document.querySelector(".last-text");
+    if(old) old.classList.remove("last-text");
 
-    board[r][c]=currentPlayer;
-    cell.textContent=currentPlayer;
-    cell.classList.add(currentPlayer);
+    const idx = r*SIZE + c;
+    const cell = boardDiv.children[idx];
+
+    board[r][c] = currentPlayer;
+    cell.textContent = currentPlayer;
+    cell.classList.add(currentPlayer, "last-text");
 
     history.push({r,c,player:currentPlayer,code});
-    infoDiv.textContent=`Nước vừa đánh: ${currentPlayer} → ${code}`;
+    infoDiv.textContent = `Nước vừa đánh: ${currentPlayer} → ${code}`;
 
     if(checkWin(r,c)){
         gameOver = true;
-        setTimeout(() => {
-            alert(`🎉 Người chơi ${currentPlayer} thắng!`);
-        }, 50);
+        setTimeout(()=>alert(`🎉 ${currentPlayer} thắng!`),50);
         return;
     }
 
-    // ✅ KIỂM TRA HÒA
-    if(checkDraw()){
+    if(history.length === SIZE*SIZE){
         gameOver = true;
-        setTimeout(() => {
-            alert("🤝 Hòa! Không còn nước đi nào.");
-        }, 50);
+        setTimeout(()=>alert("🤝 Hòa!"),50);
         return;
     }
 
-    currentPlayer=currentPlayer==="X"?"O":"X";
-    turnSpan.textContent=currentPlayer;
+    currentPlayer = currentPlayer==="X" ? "O" : "X";
+    turnSpan.textContent = currentPlayer;
 }
 
-// ===== UNDO =====
+/* ===== UNDO ===== */
 function undo(){
-    if(history.length===0||gameOver) return;
+    if(history.length===0 || gameOver) return;
 
-    const last=history.pop();
-    board[last.r][last.c]="";
+    const last = history.pop();
+    board[last.r][last.c] = "";
 
-    const idx=last.r*SIZE+last.c;
-    const cell=boardDiv.children[idx];
+    const idx = last.r*SIZE + last.c;
+    const cell = boardDiv.children[idx];
     cell.textContent="";
     cell.className="cell";
 
-    currentPlayer=last.player;
-    turnSpan.textContent=currentPlayer;
+    currentPlayer = last.player;
+    turnSpan.textContent = currentPlayer;
+
+    // highlight lại chữ trước
+    const old = document.querySelector(".last-text");
+    if(old) old.classList.remove("last-text");
 
     if(history.length){
-        const prev=history[history.length-1];
-        infoDiv.textContent=`Nước vừa đánh: ${prev.player} → ${prev.code}`;
+        const prev = history[history.length-1];
+        const idx2 = prev.r*SIZE + prev.c;
+        boardDiv.children[idx2].classList.add("last-text");
+        infoDiv.textContent = `Nước vừa đánh: ${prev.player} → ${prev.code}`;
     }else{
         infoDiv.textContent="Nước vừa đánh: —";
     }
 }
 
-// ===== NEXT ROUND =====
+/* ===== NEXT ROUND ===== */
 function nextRound(){
     round++;
-    document.getElementById("round").textContent=round;
+    document.getElementById("round").textContent = round;
     init();
 }
 
-// ===== CHECK WIN =====
+/* ===== CHECK WIN ===== */
 function checkWin(r,c){
-    return(
-        count(r,c,1,0)+count(r,c,-1,0)>=WIN-1||
-        count(r,c,0,1)+count(r,c,0,-1)>=WIN-1||
-        count(r,c,1,1)+count(r,c,-1,-1)>=WIN-1||
-        count(r,c,1,-1)+count(r,c,-1,1)>=WIN-1
+    return (
+        count(r,c,1,0)+count(r,c,-1,0)>=4 ||
+        count(r,c,0,1)+count(r,c,0,-1)>=4 ||
+        count(r,c,1,1)+count(r,c,-1,-1)>=4 ||
+        count(r,c,1,-1)+count(r,c,-1,1)>=4
     );
 }
 
-function checkDraw(){
-    return history.length === SIZE * SIZE;
-}
-
 function count(r,c,dr,dc){
-    let cnt=0,i=r+dr,j=c+dc;
+    let i=r+dr,j=c+dc,cnt=0;
     while(i>=0&&i<SIZE&&j>=0&&j<SIZE&&board[i][j]===currentPlayer){
         cnt++; i+=dr; j+=dc;
     }
