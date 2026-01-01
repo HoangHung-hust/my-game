@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>Caro Responsive</title>
+<title>Caro</title>
 
 <style>
 body{
@@ -10,7 +10,6 @@ body{
     color:#eee;
     font-family:Arial;
     text-align:center;
-    margin:0;
 }
 
 #topbar{
@@ -37,53 +36,35 @@ button{
     font-size:16px;
 }
 
-/* ===== BOARD ===== */
-#board-wrapper{
-    width:100vw;
-    overflow:auto;
-    display:flex;
-    justify-content:center;
-}
-
 #board{
-    --cell:36px;
     display:grid;
-    grid-template-columns:repeat(15,var(--cell));
+    grid-template-columns:repeat(15,36px);
     gap:1px;
+    justify-content:center;
     margin:15px auto;
-    transform-origin:center;
 }
 
 .cell{
-    width:var(--cell);
-    height:var(--cell);
+    width:36px;
+    height:36px;
     background:#222;
     border:1px solid #444;
     font-size:22px;
-    line-height:var(--cell);
+    line-height:36px;
     cursor:pointer;
     user-select:none;
 }
 
-.X{color:#ff5252;}
-.O{color:#4fc3f7;}
+.X{ color:#ff5252; }
+.O{ color:#4fc3f7; }
 
-/* highlight chữ vừa đánh */
+/* ⭐ Highlight CHỮ vừa đánh */
 .last-text{
     text-shadow:
         0 0 6px currentColor,
-        0 0 12px currentColor;
+        0 0 12px currentColor,
+        0 0 18px currentColor;
     font-weight:bold;
-}
-
-/* ===== MOBILE PORTRAIT ===== */
-@media (max-width: 768px){
-    #board{
-        transform: rotate(90deg) scale(0.9);
-    }
-    .cell{
-        transform: rotate(-90deg);
-    }
 }
 </style>
 </head>
@@ -101,9 +82,7 @@ button{
     <div id="info">Nước vừa đánh: —</div>
 </div>
 
-<div id="board-wrapper">
-    <div id="board"></div>
-</div>
+<div id="board"></div>
 
 <script>
 const SIZE = 15;
@@ -123,39 +102,42 @@ const moveInput = document.getElementById("moveInput");
 /* ===== INIT ===== */
 function init(){
     board = Array.from({length:SIZE},()=>Array(SIZE).fill(""));
-    boardDiv.innerHTML="";
-    history=[];
-    gameOver=false;
-    currentPlayer="X";
-    turnSpan.textContent="X";
-    infoDiv.textContent="Nước vừa đánh: —";
+    boardDiv.innerHTML = "";
+    history = [];
+    gameOver = false;
+    currentPlayer = "X";
+    turnSpan.textContent = "X";
+    infoDiv.textContent = "Nước vừa đánh: —";
 
     for(let r=0;r<SIZE;r++){
         for(let c=0;c<SIZE;c++){
-            const cell=document.createElement("div");
-            cell.className="cell";
-            cell.onclick=()=>{
-                const code=(r+1)*100+(c+1);
+            const cell = document.createElement("div");
+            cell.className = "cell";
+
+            cell.onclick = ()=>{
+                const code = (r+1)*100 + (c+1);
                 place(r,c,code);
             };
+
             boardDiv.appendChild(cell);
         }
     }
 }
 
-/* ===== INPUT ===== */
+/* ===== ENTER INPUT ===== */
 moveInput.addEventListener("keydown",e=>{
     if(e.key==="Enter") playByInput();
 });
 
 function playByInput(){
     if(gameOver) return;
-    const v=moveInput.value.trim();
-    if(!/^\d+$/.test(v)) return alert("Nhập XY dạng số!");
 
-    const num=+v;
-    const x=Math.floor(num/100);
-    const y=num%100;
+    const val = moveInput.value.trim();
+    if(!/^\d+$/.test(val)) return alert("Nhập XY dạng số!");
+
+    const num = +val;
+    const x = Math.floor(num/100);
+    const y = num % 100;
 
     if(x<1||x>15||y<1||y>15)
         return alert("Ngoài bàn cờ!");
@@ -166,61 +148,62 @@ function playByInput(){
 
 /* ===== PLACE ===== */
 function place(r,c,code){
-    if(gameOver||board[r][c]!="") return;
+    if(gameOver || board[r][c]!="") return;
 
-    const old=document.querySelector(".last-text");
+    // ❌ bỏ highlight chữ cũ
+    const old = document.querySelector(".last-text");
     if(old) old.classList.remove("last-text");
 
-    const idx=r*SIZE+c;
-    const cell=boardDiv.children[idx];
+    const idx = r*SIZE + c;
+    const cell = boardDiv.children[idx];
 
-    board[r][c]=currentPlayer;
-    cell.textContent=currentPlayer;
-    cell.classList.add(currentPlayer,"last-text");
+    board[r][c] = currentPlayer;
+    cell.textContent = currentPlayer;
+    cell.classList.add(currentPlayer, "last-text");
 
     history.push({r,c,player:currentPlayer,code});
-    infoDiv.textContent=`Nước vừa đánh: ${currentPlayer} → ${code}`;
+    infoDiv.textContent = `Nước vừa đánh: ${currentPlayer} → ${code}`;
 
     if(checkWin(r,c)){
-        gameOver=true;
+        gameOver = true;
         setTimeout(()=>alert(`🎉 ${currentPlayer} thắng!`),50);
         return;
     }
 
-    if(history.length===SIZE*SIZE){
-        gameOver=true;
+    if(history.length === SIZE*SIZE){
+        gameOver = true;
         setTimeout(()=>alert("🤝 Hòa!"),50);
         return;
     }
 
-    currentPlayer=currentPlayer==="X"?"O":"X";
-    turnSpan.textContent=currentPlayer;
+    currentPlayer = currentPlayer==="X" ? "O" : "X";
+    turnSpan.textContent = currentPlayer;
 }
 
 /* ===== UNDO ===== */
 function undo(){
-    if(history.length===0||gameOver) return;
+    if(history.length===0 || gameOver) return;
 
-    const last=history.pop();
-    board[last.r][last.c]="";
+    const last = history.pop();
+    board[last.r][last.c] = "";
 
-    const idx=last.r*SIZE+last.c;
-    const cell=boardDiv.children[idx];
+    const idx = last.r*SIZE + last.c;
+    const cell = boardDiv.children[idx];
     cell.textContent="";
     cell.className="cell";
 
-    currentPlayer=last.player;
-    turnSpan.textContent=currentPlayer;
+    currentPlayer = last.player;
+    turnSpan.textContent = currentPlayer;
 
-    const old=document.querySelector(".last-text");
+    // highlight lại chữ trước
+    const old = document.querySelector(".last-text");
     if(old) old.classList.remove("last-text");
 
     if(history.length){
-        const prev=history[history.length-1];
-        boardDiv.children[prev.r*SIZE+prev.c]
-            .classList.add("last-text");
-        infoDiv.textContent=
-            `Nước vừa đánh: ${prev.player} → ${prev.code}`;
+        const prev = history[history.length-1];
+        const idx2 = prev.r*SIZE + prev.c;
+        boardDiv.children[idx2].classList.add("last-text");
+        infoDiv.textContent = `Nước vừa đánh: ${prev.player} → ${prev.code}`;
     }else{
         infoDiv.textContent="Nước vừa đánh: —";
     }
@@ -229,16 +212,16 @@ function undo(){
 /* ===== NEXT ROUND ===== */
 function nextRound(){
     round++;
-    document.getElementById("round").textContent=round;
+    document.getElementById("round").textContent = round;
     init();
 }
 
-/* ===== WIN ===== */
+/* ===== CHECK WIN ===== */
 function checkWin(r,c){
-    return(
-        count(r,c,1,0)+count(r,c,-1,0)>=4||
-        count(r,c,0,1)+count(r,c,0,-1)>=4||
-        count(r,c,1,1)+count(r,c,-1,-1)>=4||
+    return (
+        count(r,c,1,0)+count(r,c,-1,0)>=4 ||
+        count(r,c,0,1)+count(r,c,0,-1)>=4 ||
+        count(r,c,1,1)+count(r,c,-1,-1)>=4 ||
         count(r,c,1,-1)+count(r,c,-1,1)>=4
     );
 }
