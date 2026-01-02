@@ -423,7 +423,6 @@ const QUESTIONS = [
     {level:3, q:"Vương triều nào ở Trung Quốc đã cho xây dựng Tử Cấm Thành ở Bắc Kinh?", a:["Nhà Nguyên","Nhà Minh","Nhà Thanh","Nhà Tống"], c:1},
     {level:3, q:"Vị vua nào của Việt Nam được sử sách ghi nhận là người đầu tiên tổ chức thi Đình?", a:["Lý Nhân Tông","Trần Thái Tông","Lê Thánh Tông","Trần Thánh Tông"], c:1},
     {level:3, q:"Chiến dịch Biên giới Thu Đông 1950 nhằm mục đích gì chủ yếu?", a:["Giải phóng Hà Nội","Khai thông đường sang Trung Quốc","Tiêu diệt tập đoàn cứ điểm","Phá thế bao vòng"], c:1},
-    {level:3, q:"Quần đảo Hoàng Sa bị quân đội Trung Quốc chiếm đóng toàn bộ từ năm nào?", a:["1954","1974","1988","1979"], c:1},
     {level:3, q:"Cuộc cách mạng Văn hóa ở Trung Quốc kéo dài trong bao nhiêu năm?", a:["5","10","15","20"], c:1},
     {level:3, q:"Tên gọi 'Thăng Long' chính thức bị đổi thành 'Hà Nội' vào năm nào?", a:["1802","1831","1888","1945"], c:1},
     {level:3, q:"Trận thủy chiến 'Vạn Tường' là chiến dịch quân sự lớn đầu tiên của Mỹ tại Việt Nam vào năm nào?", a:["1963","1964","1965","1966"], c:2},
@@ -553,6 +552,12 @@ function shuffle(arr){
 function startGame(){
     gameQuestions = [];
     currentIndex = 0;
+
+    // --- RESET CÁC NÚT TRỢ GIÚP ---
+    const lifelines = document.querySelectorAll(".lifeline");
+    lifelines.forEach(btn => {
+        btn.classList.remove("used");
+    });
 
     // chia câu hỏi theo level
     let byLevel = {
