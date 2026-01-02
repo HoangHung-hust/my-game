@@ -249,6 +249,7 @@ function playByCode(){
     let d=decode(code);
     if(!d){ showMsg("Mã không hợp lệ",true); return; }
     move(d.t,d.x,d.y);
+    document.getElementById("codeInput").value = "";
 }
 
 function undo(){
@@ -276,6 +277,13 @@ function isLast(t,x,y){
 }
 
 init();
+// Lắng nghe sự kiện phím Enter trên ô nhập mã
+document.getElementById("codeInput").addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+        event.preventDefault(); // Ngăn chặn hành động mặc định nếu cần
+        playByCode(); // Gọi hàm Đánh
+    }
+});
 </script>
 </body>
 </html>
