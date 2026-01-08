@@ -74,23 +74,49 @@ button{
         0 0 18px currentColor;
     font-weight:bold;
 }
+
+/*menu*/
+#menu{
+    margin-top:60px;
+}
+
+#menu button{
+    margin:8px;
+    padding:10px 18px;
+    font-size:16px;
+}
+
 </style>
 </head>
 
 <body>
 
-<div id="topbar">
-    Round: <b id="round">1</b> |
-    Lượt: <b id="turn">X</b><br><br>
+<div id="menu">
+    <h2>🎮 Chọn chế độ chơi</h2>
 
-    <input id="moveInput" placeholder="Nhập XY (vd: 304)">
-    <button onclick="undo()">Undo</button>
-    <button onclick="nextRound()">Chơi lại</button>
+    <button onclick="startPvP()">👥 2 Người chơi</button>
+    <br><br>
 
-    <div id="info">Nước vừa đánh: —</div>
+    <button onclick="startPvE('easy')">🤖 Máy - Easy</button>
+    <button onclick="startPvE('medium')">🤖 Máy - Medium</button>
+    <button onclick="startPvE('hard')">🤖 Máy - Hard</button>
 </div>
 
-<div id="board"></div>
+<div id="gameUI" style="display:none;">
+    <div id="topbar">
+        Round: <b id="round">1</b> |
+        Lượt: <b id="turn">X</b><br><br>
+
+        <input id="moveInput" placeholder="Nhập XY (vd: 304)">
+        <button onclick="undo()">Undo</button>
+        <button onclick="nextRound()">Chơi lại</button>
+        <button onclick="backToMenu()">☰ Menu</button>
+
+        <div id="info">Nước vừa đánh: —</div>
+    </div>
+
+    <div id="board"></div>
+</div>
 
 <script>
 const SIZE = 15;
@@ -101,11 +127,64 @@ let history = [];
 let currentPlayer = "X";
 let gameOver = false;
 let round = 1;
+let gameMode = "PVP"; // PVP | PVE
+let aiLevel = "easy";
+let humanPlayer = "X";
+let aiPlayer = "O";
+let aiFirst = false; // false = người đi trước
 
 const boardDiv = document.getElementById("board");
 const turnSpan = document.getElementById("turn");
 const infoDiv = document.getElementById("info");
 const moveInput = document.getElementById("moveInput");
+
+/*Khởi động game theo chế độ*/
+function startPvP(){
+    gameMode = "PVP";
+    document.getElementById("menu").style.display="none";
+    showGameUI();
+    init();
+}
+
+function startPvE(level){
+    gameMode = "PVE";
+    aiLevel = level;
+
+    aiFirst = false;     // ván đầu người đi trước
+    aiPlayer = "O";
+    currentPlayer = "X";
+
+    showGameUI();
+    init();
+}
+
+
+function showGameUI(){
+    document.getElementById("menu").style.display = "none";
+    document.getElementById("gameUI").style.display = "block";
+}
+
+function backToMenu(){
+
+    // Nếu đang trong ván và đã có nước đi
+    if(!gameOver && history.length > 0){
+        const ok = confirm("Bạn có chắc muốn thoát ván đang chơi?");
+        if(!ok) return;
+    }
+
+    // Dừng game / AI
+    gameOver = true;
+
+    // Ẩn game, hiện menu
+    document.getElementById("gameUI").style.display = "none";
+    document.getElementById("menu").style.display = "block";
+
+    // Reset trạng thái
+    boardDiv.innerHTML = "";
+    history = [];
+    round = 1;
+    document.getElementById("round").textContent = 1;
+}
 
 /* ===== INIT ===== */
 function init(){
@@ -113,8 +192,7 @@ function init(){
     boardDiv.innerHTML = "";
     history = [];
     gameOver = false;
-    currentPlayer = "X";
-    turnSpan.textContent = "X";
+    turnSpan.textContent = currentPlayer;
     infoDiv.textContent = "Nước vừa đánh: —";
 
     for(let r=0;r<SIZE;r++){
@@ -140,6 +218,10 @@ moveInput.addEventListener("keydown",e=>{
 function playByInput(){
     if(gameOver) return;
 
+    if(gameMode==="PVE" && currentPlayer===aiPlayer){
+        return;
+    }
+
     const val = moveInput.value.trim();
     if(!/^\d+$/.test(val)) return alert("Nhập XY dạng số!");
 
@@ -156,6 +238,11 @@ function playByInput(){
 
 /* ===== PLACE ===== */
 function place(r,c,code){
+    // 🚫 khóa người chơi khi tới lượt máy
+    if(gameMode==="PVE" && currentPlayer===aiPlayer && !isAITurn){
+        return;
+    }
+
     if(gameOver || board[r][c]!="") return;
 
     const old = document.querySelector(".last-text");
@@ -171,7 +258,7 @@ function place(r,c,code){
     history.push({r,c,player:currentPlayer,code});
     infoDiv.textContent = `Nước vừa đánh: ${currentPlayer} → ${code}`;
 
-    if(checkWin(r,c)){
+    if(checkWin(r,c, currentPlayer)){
         gameOver = true;
         setTimeout(()=>alert(`🎉 ${currentPlayer} thắng!`),50);
         return;
@@ -185,6 +272,16 @@ function place(r,c,code){
 
     currentPlayer = currentPlayer==="X" ? "O" : "X";
     turnSpan.textContent = currentPlayer;
+
+    if(gameMode==="PVE" && currentPlayer===aiPlayer && !gameOver){
+        isAITurn = true;
+        boardDiv.classList.add("locked"); // optional
+        setTimeout(()=>{
+            aiMove();
+            isAITurn = false;
+            boardDiv.classList.remove("locked");
+        }, 50);
+    }
 }
 
 /* ===== UNDO ===== */
@@ -219,28 +316,349 @@ function undo(){
 function nextRound(){
     round++;
     document.getElementById("round").textContent = round;
+
+    // chỉ đổi lượt nếu chơi với máy
+    if(gameMode === "PVE"){
+        aiFirst = !aiFirst;
+
+        if(aiFirst){
+            aiPlayer = "X";
+            humanPlayer = "O";
+        }else{
+            aiPlayer = "O";
+            humanPlayer = "X";
+        }
+        currentPlayer = aiPlayer === "X" ? "X" : humanPlayer;
+
+    }else{
+        currentPlayer = "X";
+    }
+
     init();
+
+    // nếu máy đi trước → cho máy đánh ngay
+    if(gameMode === "PVE" && aiFirst){
+        turnSpan.textContent = aiPlayer;
+        isAITurn = true;
+        boardDiv.classList.add("locked");
+
+        setTimeout(()=>{
+            aiMove();
+            isAITurn = false;
+            boardDiv.classList.remove("locked");
+        }, 80);
+    }
 }
 
+
 /* ===== CHECK WIN ===== */
-function checkWin(r,c){
+function checkWin(r,c,player){
     return (
-        count(r,c,1,0)+count(r,c,-1,0)>=4 ||
-        count(r,c,0,1)+count(r,c,0,-1)>=4 ||
-        count(r,c,1,1)+count(r,c,-1,-1)>=4 ||
-        count(r,c,1,-1)+count(r,c,-1,1)>=4
+        count(r,c,1,0,player)+count(r,c,-1,0,player)>=4 ||
+        count(r,c,0,1,player)+count(r,c,0,-1,player)>=4 ||
+        count(r,c,1,1,player)+count(r,c,-1,-1,player)>=4 ||
+        count(r,c,1,-1,player)+count(r,c,-1,1,player)>=4
     );
 }
 
-function count(r,c,dr,dc){
+function count(r,c,dr,dc,player){
     let i=r+dr,j=c+dc,cnt=0;
-    while(i>=0&&i<SIZE&&j>=0&&j<SIZE&&board[i][j]===currentPlayer){
+    while(i>=0&&i<SIZE&&j>=0&&j<SIZE&&board[i][j]===player){
         cnt++; i+=dr; j+=dc;
     }
     return cnt;
 }
 
-init();
+function aiMove(){
+    if(aiLevel==="easy") aiEasy();
+    else if(aiLevel==="medium") aiMedium();
+    else aiHard();
+}
+
+function aiEasy(){
+    // // ===== OPENING RULE =====
+    // if(history.length <= 2){
+    //     openingMove();
+    //     return;
+    // }
+    let best=null;
+    let danger=0;
+
+    for(let r=0;r<SIZE;r++){
+        for(let c=0;c<SIZE;c++){
+            if(board[r][c]===""){
+                let d = threatLevel(r,c,humanPlayer);
+                if(d > danger){
+                    danger = d;
+                    best = [r,c];
+                }
+            }
+        }
+    }
+
+    // chặn nếu đối thủ có thế 3+
+    if(best && danger>=3){
+        place(best[0],best[1],
+              (best[0]+1)*100+(best[1]+1));
+        return;
+    }
+
+    // không nguy hiểm → đánh quanh nước vừa đi
+    aiAroundLast();
+}
+
+function aiMedium(){
+    // ===== OPENING RULE =====
+    if(history.length <= 2){
+        openingMove();
+        return;
+    }
+
+    // thắng ngay?
+    let win = findImmediateWin(aiPlayer);
+    if(win){ place(...win); return; }
+
+    // chặn thắng ngay
+    let block = findImmediateWin(humanPlayer);
+    if(block){ place(...block); return; }
+
+    let bestAtk=null, bestDef=null;
+    let maxAtk=-1, maxDef=-1;
+
+    for(let r=0;r<SIZE;r++){
+        for(let c=0;c<SIZE;c++){
+            if(board[r][c]===""){
+                let atk = threatLevel(r,c,aiPlayer);
+                let def = threatLevel(r,c,humanPlayer);
+
+                if(atk>maxAtk){ maxAtk=atk; bestAtk=[r,c]; }
+                if(def>maxDef){ maxDef=def; bestDef=[r,c]; }
+            }
+        }
+    }
+
+    // ưu tiên chặn
+    if(maxDef>=3){
+        place(bestDef[0],bestDef[1],
+              (bestDef[0]+1)*100+(bestDef[1]+1));
+        return;
+    }
+
+    // tấn công
+    if(bestAtk){
+        place(bestAtk[0],bestAtk[1],
+              (bestAtk[0]+1)*100+(bestAtk[1]+1));
+        return;
+    }
+
+    aiEasy();
+}
+
+function aiHard(){
+    // ===== OPENING RULE =====
+    if(history.length <= 2){
+        openingMove();
+        return;
+    }
+
+    // 1️⃣ AI thắng ngay? → ĐÁNH NGAY
+    let win = findImmediateWin(aiPlayer);
+    if(win){
+        place(win[0], win[1],
+              (win[0]+1)*100+(win[1]+1));
+        return;
+    }
+
+    // 2️⃣ Đối thủ thắng ngay? → CHẶN
+    let block = findImmediateWin(humanPlayer);
+    if(block){
+        place(block[0], block[1],
+              (block[0]+1)*100+(block[1]+1));
+        return;
+    }
+
+    // 3️⃣ KHÔNG có thắng/chết ngay → mới dùng heuristic
+    let best=null;
+    let bestScore=-Infinity;
+
+    let moves = getBestCandidates(10);
+
+    for(let m of moves){
+        let {r,c}=m;
+
+        board[r][c]=aiPlayer;
+        let atk = evaluatePosition(r,c,aiPlayer);
+
+        let worst=0;
+        let replies = getBestCandidates(6);
+        for(let rep of replies){
+            worst = Math.max(worst,
+                evaluatePosition(rep.r,rep.c,humanPlayer)
+            );
+        }
+
+        board[r][c]="";
+
+        let score = atk - worst*1.4;
+
+        if(score>bestScore){
+            bestScore=score;
+            best=[r,c];
+        }
+    }
+
+    if(best){
+        place(best[0],best[1],
+              (best[0]+1)*100+(best[1]+1));
+        return;
+    }
+
+    // 4️⃣ fallback
+    aiAroundLast();
+}
+
+function openingMove(){
+    // nếu AI đi trước
+    if(history.length === 0){
+        let r = Math.floor(SIZE/2);
+        let c = Math.floor(SIZE/2);
+        place(r,c,(r+1)*100+(c+1));
+        return;
+    }
+
+    // AI đi sau: đánh cạnh nước đầu của người
+    let first = history[0];
+    let candidates = [
+        [first.r+1, first.c],
+        [first.r-1, first.c],
+        [first.r, first.c+1],
+        [first.r, first.c-1],
+        [first.r+1, first.c+1],
+        [first.r-1, first.c-1],
+        [first.r+1, first.c-1],
+        [first.r-1, first.c+1],
+    ];
+
+    for(let [r,c] of candidates){
+        if(r>=0&&r<SIZE&&c>=0&&c<SIZE&&board[r][c]===""){
+            place(r,c,(r+1)*100+(c+1));
+            return;
+        }
+    }
+
+    // fallback
+    aiAroundLast();
+}
+
+function aiAroundLast(){
+    const last = history[history.length-1];
+    let list=[];
+
+    for(let dr=-2;dr<=2;dr++){
+        for(let dc=-2;dc<=2;dc++){
+            let r=last.r+dr, c=last.c+dc;
+            if(r>=0&&r<SIZE&&c>=0&&c<SIZE&&board[r][c]===""){
+                list.push([r,c]);
+            }
+        }
+    }
+
+    if(!list.length){
+        for(let r=0;r<SIZE;r++)
+            for(let c=0;c<SIZE;c++)
+                if(board[r][c]==="") list.push([r,c]);
+    }
+
+    const [r,c]=list[Math.floor(Math.random()*list.length)];
+    place(r,c,(r+1)*100+(c+1));
+}
+
+function countWithOpenEnds(r,c,dr,dc,player){
+    let cnt=0;
+    let i=r+dr,j=c+dc;
+    while(i>=0&&i<SIZE&&j>=0&&j<SIZE&&board[i][j]===player){
+        cnt++; i+=dr; j+=dc;
+    }
+    let open1 = (i>=0&&i<SIZE&&j>=0&&j<SIZE&&board[i][j]==="");
+
+    i=r-dr; j=c-dc;
+    while(i>=0&&i<SIZE&&j>=0&&j<SIZE&&board[i][j]===player){
+        cnt++; i-=dr; j-=dc;
+    }
+    let open2 = (i>=0&&i<SIZE&&j>=0&&j<SIZE&&board[i][j]==="");
+
+    return {cnt, open: open1+open2};
+}
+
+function evaluatePosition(r,c,player){
+    const dirs=[[1,0],[0,1],[1,1],[1,-1]];
+    let score=0;
+
+    for(let [dr,dc] of dirs){
+        let {cnt,open} = countWithOpenEnds(r,c,dr,dc,player);
+
+        if(cnt>=4) score+=100000;
+        else if(cnt===3 && open===2) score+=10000;
+        else if(cnt===3 && open===1) score+=3000;
+        else if(cnt===2 && open===2) score+=500;
+    }
+    return score;
+}
+
+function getBestCandidates(limit=10){
+    let list=[];
+
+    for(let r=0;r<SIZE;r++){
+        for(let c=0;c<SIZE;c++){
+            if(board[r][c]===""){
+                let atk = evaluatePosition(r,c,aiPlayer);
+                let def = evaluatePosition(r,c,humanPlayer);
+                let score = atk + def*1.2;
+                list.push({r,c,score});
+            }
+        }
+    }
+
+    list.sort((a,b)=>b.score-a.score);
+    return list.slice(0,limit);
+}
+
+function countLine(r,c,dr,dc,player){
+    let cnt=0;
+    let i=r+dr, j=c+dc;
+    while(i>=0&&i<SIZE&&j>=0&&j<SIZE&&board[i][j]===player){
+        cnt++; i+=dr; j+=dc;
+    }
+    return cnt;
+}
+
+function threatLevel(r,c,player){
+    const dirs=[[1,0],[0,1],[1,1],[1,-1]];
+    let max=0;
+
+    for(let [dr,dc] of dirs){
+        let a = countLine(r,c,dr,dc,player);
+        let b = countLine(r,c,-dr,-dc,player);
+        max = Math.max(max, a+b);
+    }
+    return max;
+}
+
+function findImmediateWin(player){
+    for(let r=0;r<SIZE;r++){
+        for(let c=0;c<SIZE;c++){
+            if(board[r][c]===""){
+                board[r][c]=player;
+                let win = checkWin(r,c, player);
+                board[r][c]="";
+                if(win) return [r,c];
+            }
+        }
+    }
+    return null;
+}
+
+//init();
 </script>
 
 </body>
